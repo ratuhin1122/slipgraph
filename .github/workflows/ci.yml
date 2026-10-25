@@ -1,0 +1,88 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          check-latest: true
+          cache: true
+      - run: go mod download
+      - run: go build ./cmd/... ./internal/...
+      - run: go vet ./cmd/... ./internal/...
+      - run: go test -race -count=1 ./cmd/... ./internal/...
+      # Docker is required: integration tests never silently skip isolation checks.
+      - run: go test -race -count=1 -tags=integration -timeout=5m ./internal/platform/database
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.15.0
+          args: ./cmd/... ./internal/...
+      - run: go run github.com/securego/gosec/v2/cmd/gosec@v2.30.0 ./cmd/... ./internal/...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./cmd/... ./internal/...
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --audit-level=low
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.26.x', check-latest: true}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: npm --prefix web ci
+      - run: make gen
+      - run: git diff --exit-code
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose build
+      - run: docker compose up -d --wait --wait-timeout 180
+      - run: |
+          curl --fail --retry 10 --retry-delay 2 http://localhost:8080/healthz
+          curl --fail http://localhost:5173/
+          curl --fail http://localhost:5173/api/healthz
+          docker compose exec -T worker wget -qO- http://localhost:8081/healthz
+      - name: Proxy follows API address changes
+        run: |
+          old_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' slipgraph-api-1)
+          docker compose rm --stop --force api
+          docker run -d --rm --name slipgraph-dns-check --network slipgraph_default --ip "$old_ip" alpine:3.23 sleep 120
+          trap 'docker rm -f slipgraph-dns-check || true' EXIT
+          docker compose up -d --wait --no-deps api
+          new_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' slipgraph-api-1)
+          test "$new_ip" != "$old_ip"
+          curl --fail --retry 10 --retry-all-errors --retry-delay 2 http://localhost:5173/api/healthz
+      - if: failure()
+        run: docker compose logs --no-color
+      - if: always()
+        run: docker compose down --volumes

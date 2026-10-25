@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+node_modules/
+web/dist/
+coverage*
+*.test
+*.exe
+bin/
+.idea/
+.vscode/

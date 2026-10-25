@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: Slipgraph API
+  version: 0.1.0
+  description: Multi-tenant AI team workspace. Tenant identity comes from authenticated sessions.
+servers:
+  - url: /api
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Check database and Redis readiness
+      security: []
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+components:
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
