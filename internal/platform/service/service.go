@@ -13,11 +13,13 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/slipgraph/slipgraph/internal/audit"
 	"github.com/slipgraph/slipgraph/internal/auth"
+	"github.com/slipgraph/slipgraph/internal/chat"
 	"github.com/slipgraph/slipgraph/internal/events"
 	"github.com/slipgraph/slipgraph/internal/platform/config"
 	"github.com/slipgraph/slipgraph/internal/platform/database"
 	"github.com/slipgraph/slipgraph/internal/platform/httpserver"
 	"github.com/slipgraph/slipgraph/internal/platform/logging"
+	"github.com/slipgraph/slipgraph/internal/realtime"
 	"github.com/slipgraph/slipgraph/internal/risk"
 )
 
@@ -69,6 +71,7 @@ func Run(name, defaultAddr string) int {
 		return 1
 	}
 	probes := []httpserver.Probe{pool.Ping, func(ctx context.Context) error { return cache.Ping(ctx).Err() }}
+	broker := &realtime.Broker{Redis: cache}
 	var handler http.Handler
 	if name == "api" {
 		endpoints, err := auth.NewHTTP(identity, config.PublicOrigin(), cfg.Environment == "production")
@@ -77,9 +80,11 @@ func Run(name, defaultAddr string) int {
 			return 1
 		}
 		endpoints.TrustedProxyHost = os.Getenv("TRUSTED_PROXY_HOST")
-		handler = httpserver.NewAPI(logger, endpoints, probes...)
+		gateway := realtime.New(ctx, endpoints, &chat.Store{Auth: identity}, broker)
+		defer gateway.Shutdown()
+		handler = httpserver.NewRealtimeAPI(logger, endpoints, gateway, probes...)
 	} else {
-		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}}}
+		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}, {Name: "chat-fanout-v1", Handle: broker.Consume}}}
 		done := make(chan struct{})
 		go func() { defer close(done); dispatcher.Run(ctx) }()
 		defer func() { stop(); <-done }()

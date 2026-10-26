@@ -1,7 +1,7 @@
 # Slipgraph architecture
 
 Slipgraph is a multi-tenant team workspace with authenticated identity, projects,
-tasks, deterministic dependency analysis, and transactional audit delivery. Agents,
+tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. Agents,
 proposals, external integrations, and AI providers remain disabled.
 
 ## Runtime and boundaries
@@ -9,8 +9,8 @@ proposals, external integrations, and AI providers remain disabled.
 One Go module contains separate API and worker binaries, owner-only goose migrations,
 and the authenticated `slipgraph audit verify` command. Domain packages live under
 `internal/`; infrastructure lives under `internal/platform/`. Postgres 16 with
-pgvector holds durable state. Redis currently supplies infrastructure readiness;
-no tenant content or unscoped domain cache is stored there.
+pgvector holds durable state. Redis supplies workspace-prefixed pub/sub invalidations, connection leases, flood
+budgets, and expiring presence. Message bodies remain in Postgres.
 
 ## The nine foundations
 
@@ -21,17 +21,19 @@ no tenant content or unscoped domain cache is stored there.
    a sealed `TenantTx` capability that expires after its callback. Tenant identity
    is resolved from an authenticated session and verified membership. The approved
    global identity exception is described below; it is not a business-data escape.
-2. **Generic objects.** Workspaces, tenant member projections, projects, tasks, and
-   risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
+2. **Generic objects.** Workspaces, tenant member projections, projects, tasks,
+   channels, messages, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
    Application IDs are UUIDv7. Mutable objects use versions and soft deletion.
 3. **Generic links.** `app.links` stores task-to-project `belongs_to`, task-to-member
-   `owned_by`, task-to-blocker `blocked_by`, and assessment-to-project relationships.
-   Composite foreign keys prevent cross-workspace references. Relationship columns
-   are not duplicated in feature tables. Ownership IDs refer to tenant member objects.
+   `owned_by`, task-to-blocker `blocked_by`, assessment-to-project relationships, message-to-channel `belongs_to`,
+   message-to-member `mentions`, and message-to-task `references`.
+   Composite foreign keys prevent cross-workspace references. The requested `messages.thread_id` is a composite tenant-aware self-reference;
+   other relationship columns are not duplicated in feature tables. Ownership IDs refer to tenant member objects.
 4. **Central policy.** `policy.Can` fails closed for unknown actions. Public health
    and limited authentication entry points are explicit. Verified admins manage
    invites and other members' roles; admins and members edit projects/tasks; viewers
-   read. A user cannot change their own role. Every tenant route and worker consumer
+   read. Chat channels are workspace-wide; writers post and edit/delete only their
+   own messages, including admins. A user cannot change their own role. Every tenant route and worker consumer
    rechecks authorization; job actors come from authenticated service sessions.
 5. **Transactional events.** Business mutations and `app.events` outbox records
    commit together. The dispatcher locks scoped batches with SKIP LOCKED, rechecks
@@ -45,10 +47,10 @@ no tenant content or unscoped domain cache is stored there.
    No agent, proposal, approval, or executor route is enabled in this implementation.
 7. **Worker-only slow work.** Dependency calculations and audit delivery run in the
    worker. LLM calls, transcription, and embeddings must also be authorized worker
-   jobs when introduced. River and websocket infrastructure are not enabled; their
-   isolation designs and tests remain feature gates.
+   jobs when introduced. Redis chat fanout runs as an authorized outbox consumer.
+   River infrastructure remains disabled and gated.
 8. **OpenAPI contract.** `api/openapi.yaml` defines health, authentication, membership,
-   projects, tasks, dependencies, and risk reads. oapi-codegen produces Go interfaces
+   projects, tasks, dependencies, risk reads, chat, presence, and websocket frames. oapi-codegen produces Go interfaces
    and DTOs; openapi-typescript and openapi-fetch supply the strict TypeScript client.
    `make gen` also generates sqlc bindings. Handlers reject unknown JSON fields,
    missing required fields, invalid nulls, trailing input, and oversized bodies.
@@ -133,7 +135,8 @@ of persistent database volumes. Production requires managed secrets, TLS, verifi
 Postgres TLS, Redis TLS, and a correctly configured public browser origin.
 
 NGINX serves same-origin assets/API with strict CSP and Docker DNS refresh. React
-escapes text; rich text must add DOMPurify before activation. Only the configured
+escapes text; chat strips HTML with DOMPurify and renders React text nodes and
+server-validated internal task cards. There is no raw HTML or external media loading. Only the configured
 trusted proxy may supply X-Real-IP; NGINX overwrites it. JSON slog uses an allow-list
 and redacts arbitrary errors, bodies, URLs, and secrets. Request IDs are generated
 server-side; timeouts, recovery, and graceful shutdown bound service work.
@@ -147,3 +150,41 @@ fixation/rotation, invite expiry/reuse, self-role denial, append-only audit, and
 startup rejection. Pure graph tests cover diamonds, cycles, completed nodes,
 determinism, and the 10k performance budget. CI also checks generated drift,
 vulnerability scans, image builds, Compose readiness, and API address replacement.
+
+## Chat and realtime
+
+Channels and messages extend objects with forced RLS and composite tenant keys.
+Channels are workspace-wide, not private. Root messages and one-level threads use
+UUIDv7 keyset pagination (50 default, 100 maximum). Posts accept a client UUID for
+idempotent retries; edits/deletes require the current version. Deleted messages
+become content-free tombstones so replies remain accessible. Mentions resolve
+only tenant member objects. Task URIs resolve active tasks and projects in the
+same tenant before inserting links. Events contain IDs, versions and byte counts,
+never message text; future search consumers must re-fetch under tenant policy.
+
+WebSockets use coder/websocket, exact configured Origin and secure session cookies.
+URL credentials and caller-selected scope are rejected. Every application frame,
+heartbeat, subscription and outbound notification rechecks the live session and
+central policy. Revocation/role changes apply on the next frame or server heartbeat.
+Frames are strict allow-listed JSON, text only, at most 4096 bytes; Redis enforces
+30 frames/10 seconds per user/workspace and three live connections across replicas.
+Control frames have a separate 64/10-second cap. REST posts have a 30/minute budget
+and 8000-byte limit. Each connection has at most eight subscriptions, a 75-second
+application idle deadline and a 20-second ping heartbeat. Failed pings close after
+five seconds; connection/presence leases expire after 60 seconds, typing after five.
+Shutdown explicitly closes hijacked connections and Redis subscriptions.
+
+Every Redis key/topic starts with the authenticated workspace UUID. Presence stores
+user/connection IDs and expiry only; display names come from the authorized tenant
+member projection. Fanout resolves the event's real tenant object, never trusts
+payload routing, and emits stable event IDs without content. Redis pub/sub is
+transient: outbox retries may duplicate notifications and disconnected subscribers
+can miss them. Clients deduplicate notifications, reconnect with bounded exponential
+backoff and jitter, and reload canonical REST state on reconnect (also polling).
+Optimistic sends retain their client UUID when retried. Session rotation reconnects
+sockets; workspace switching clears scoped caches and closes old connections.
+
+Docker integration checks cover every chat endpoint, subscriptions, fanout, unfiltered
+RLS, exact Origin, missing cookies, connection/frame/post limits, oversize frames,
+revocation, own-message permissions, and presence expiry. Frontend checks cover
+inert XSS payloads, internal task cards, backoff and idempotent optimistic retries.

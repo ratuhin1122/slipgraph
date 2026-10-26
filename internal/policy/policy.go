@@ -23,24 +23,34 @@ type Resource struct {
 type Action string
 
 const (
-	HealthRead       Action = "health:read"
-	AuthPublic       Action = "auth:public"
-	SessionRead      Action = "session:read"
-	SessionWrite     Action = "session:write"
-	WorkspaceCreate  Action = "workspace:create"
-	WorkspaceRead    Action = "workspace:read"
-	MemberRead       Action = "member:read"
-	MemberInvite     Action = "member:invite"
-	MemberRoleChange Action = "member:role_change"
-	ProjectRead      Action = "project:read"
-	ProjectWrite     Action = "project:write"
-	TaskRead         Action = "task:read"
-	TaskWrite        Action = "task:write"
-	RiskRead         Action = "risk:read"
-	RiskCompute      Action = "risk:compute"
-	AuditAppend      Action = "audit:append"
-	AuditVerify      Action = "audit:verify"
-	EventConsume     Action = "event:consume"
+	ChannelRead       Action = "channel:read"
+	ChannelCreate     Action = "channel:create"
+	MessagePost       Action = "message:post"
+	MessageEdit       Action = "message:edit"
+	MessageDelete     Action = "message:delete"
+	RealtimeConnect   Action = "realtime:connect"
+	RealtimeSubscribe Action = "realtime:subscribe"
+	PresenceRead      Action = "presence:read"
+	TypingWrite       Action = "typing:write"
+	ChatFanout        Action = "chat:fanout"
+	HealthRead        Action = "health:read"
+	AuthPublic        Action = "auth:public"
+	SessionRead       Action = "session:read"
+	SessionWrite      Action = "session:write"
+	WorkspaceCreate   Action = "workspace:create"
+	WorkspaceRead     Action = "workspace:read"
+	MemberRead        Action = "member:read"
+	MemberInvite      Action = "member:invite"
+	MemberRoleChange  Action = "member:role_change"
+	ProjectRead       Action = "project:read"
+	ProjectWrite      Action = "project:write"
+	TaskRead          Action = "task:read"
+	TaskWrite         Action = "task:write"
+	RiskRead          Action = "risk:read"
+	RiskCompute       Action = "risk:compute"
+	AuditAppend       Action = "audit:append"
+	AuditVerify       Action = "audit:verify"
+	EventConsume      Action = "event:consume"
 )
 
 // Can is the single authorization boundary. Actors originate in verified sessions;
@@ -56,7 +66,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 		return false
 	}
 	if actor.Role == Consumer {
-		return action == EventConsume || action == AuditAppend || action == RiskCompute
+		return action == EventConsume || action == AuditAppend || action == RiskCompute || action == ChatFanout
 	}
 	if actor.Role != Admin && actor.Role != Member && actor.Role != Viewer {
 		return false
@@ -64,13 +74,15 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 	switch action {
 	case SessionRead, SessionWrite:
 		return resource.OwnerID == "" || resource.OwnerID == actor.ID
-	case WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead:
+	case WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
 		return true
 	case MemberInvite, AuditVerify:
 		return actor.Role == Admin
 	case MemberRoleChange:
 		return actor.Role == Admin && resource.OwnerID != "" && resource.OwnerID != actor.ID
-	case ProjectWrite, TaskWrite:
+	case MessageEdit, MessageDelete:
+		return (actor.Role == Admin || actor.Role == Member) && resource.OwnerID == actor.ID
+	case ProjectWrite, TaskWrite, ChannelCreate, MessagePost, TypingWrite:
 		return actor.Role == Admin || actor.Role == Member
 	default:
 		return false

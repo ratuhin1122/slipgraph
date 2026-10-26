@@ -4,6 +4,6 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { proxy: { '/api': { target: 'http://localhost:8080', rewrite: (path) => path.replace(/^\/api/, '') } } },
+  server: { proxy: { '/api': { target: 'http://localhost:8080', ws: true, rewrite: (path) => path.replace(/^\/api/, '') } } },
   test: { pool: 'threads', maxWorkers: 1, environment: 'jsdom', setupFiles: ['./src/test/setup.ts'], restoreMocks: true },
 });

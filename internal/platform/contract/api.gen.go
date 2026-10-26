@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -79,6 +80,57 @@ type CSRF struct {
 	CsrfToken string `json:"csrf_token"`
 }
 
+// Channel defines model for Channel.
+type Channel struct {
+	Id      openapi_types.UUID `json:"id"`
+	Name    string             `json:"name"`
+	Version int64              `json:"version"`
+}
+
+// ChatMention defines model for ChatMention.
+type ChatMention struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// ChatMessage defines model for ChatMessage.
+type ChatMessage struct {
+	AuthorId   openapi_types.UUID  `json:"author_id"`
+	AuthorName string              `json:"author_name"`
+	Body       string              `json:"body"`
+	ChannelId  openapi_types.UUID  `json:"channel_id"`
+	ClientId   openapi_types.UUID  `json:"client_id"`
+	CreatedAt  time.Time           `json:"created_at"`
+	Deleted    bool                `json:"deleted"`
+	Id         openapi_types.UUID  `json:"id"`
+	Mentions   []ChatMention       `json:"mentions"`
+	ReplyCount int                 `json:"reply_count"`
+	TaskLinks  []ChatTaskLink      `json:"task_links"`
+	ThreadId   *openapi_types.UUID `json:"thread_id"`
+	UpdatedAt  time.Time           `json:"updated_at"`
+	Version    int64               `json:"version"`
+}
+
+// ChatPresenceMember defines model for ChatPresenceMember.
+type ChatPresenceMember struct {
+	Name   string             `json:"name"`
+	Typing bool               `json:"typing"`
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// ChatTaskLink defines model for ChatTaskLink.
+type ChatTaskLink struct {
+	Id        openapi_types.UUID `json:"id"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	Status    string             `json:"status"`
+	Title     string             `json:"title"`
+}
+
+// CreateChannelInput defines model for CreateChannelInput.
+type CreateChannelInput struct {
+	Name string `json:"name"`
+}
+
 // DelayInput defines model for DelayInput.
 type DelayInput struct {
 	Days    int   `json:"days"`
@@ -95,6 +147,13 @@ type Dependency struct {
 type DependencyInput struct {
 	BlockerId string `json:"blocker_id"`
 	Version   int64  `json:"version"`
+}
+
+// EditMessageInput defines model for EditMessageInput.
+type EditMessageInput struct {
+	Body       string               `json:"body"`
+	MentionIds []openapi_types.UUID `json:"mention_ids"`
+	Version    int64                `json:"version"`
 }
 
 // Error defines model for Error.
@@ -140,9 +199,26 @@ type Member struct {
 	Version     int64  `json:"version"`
 }
 
+// MessagePage defines model for MessagePage.
+type MessagePage struct {
+	Items      []ChatMessage       `json:"items"`
+	NextCursor *openapi_types.UUID `json:"next_cursor"`
+}
+
 // NameInput defines model for NameInput.
 type NameInput struct {
 	Name string `json:"name"`
+}
+
+// PostMessageInput defines model for PostMessageInput.
+type PostMessageInput struct {
+	// Body Plain text, maximum 8000 UTF-8 bytes. slipgraph://task/<uuid> references are verified and stored as links.
+	Body string `json:"body"`
+
+	// ClientId Stable UUID idempotency key; retain when retrying a send.
+	ClientId   openapi_types.UUID   `json:"client_id"`
+	MentionIds []openapi_types.UUID `json:"mention_ids"`
+	ThreadId   *openapi_types.UUID  `json:"thread_id"`
 }
 
 // Project defines model for Project.
@@ -337,6 +413,13 @@ type Workspace struct {
 	SwitchToken string `json:"switch_token"`
 }
 
+// ListMessagesParams defines parameters for ListMessages.
+type ListMessagesParams struct {
+	ThreadId *openapi_types.UUID `form:"thread_id,omitempty" json:"thread_id,omitempty"`
+	Before   *openapi_types.UUID `form:"before,omitempty" json:"before,omitempty"`
+	Limit    *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginInput
 
@@ -349,6 +432,12 @@ type SwitchWorkspaceJSONRequestBody = TicketInput
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = NameInput
 
+// CreateChannelJSONRequestBody defines body for CreateChannel for application/json ContentType.
+type CreateChannelJSONRequestBody = CreateChannelInput
+
+// PostMessageJSONRequestBody defines body for PostMessage for application/json ContentType.
+type PostMessageJSONRequestBody = PostMessageInput
+
 // CreateInviteJSONRequestBody defines body for CreateInvite for application/json ContentType.
 type CreateInviteJSONRequestBody = InviteInput
 
@@ -357,6 +446,12 @@ type AcceptInviteJSONRequestBody = TokenInput
 
 // ChangeRoleJSONRequestBody defines body for ChangeRole for application/json ContentType.
 type ChangeRoleJSONRequestBody = RoleInput
+
+// DeleteMessageJSONRequestBody defines body for DeleteMessage for application/json ContentType.
+type DeleteMessageJSONRequestBody = VersionInput
+
+// EditMessageJSONRequestBody defines body for EditMessage for application/json ContentType.
+type EditMessageJSONRequestBody = EditMessageInput
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = ProjectInput
@@ -421,6 +516,24 @@ type ServerInterface interface {
 	// (POST /auth/workspaces)
 	CreateWorkspace(w http.ResponseWriter, r *http.Request)
 
+	// (GET /channels)
+	ListChannels(w http.ResponseWriter, r *http.Request)
+
+	// (POST /channels)
+	CreateChannel(w http.ResponseWriter, r *http.Request)
+
+	// (GET /channels/{channelId})
+	GetChannel(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID)
+
+	// (GET /channels/{channelId}/messages)
+	ListMessages(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID, params ListMessagesParams)
+
+	// (POST /channels/{channelId}/messages)
+	PostMessage(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID)
+
+	// (GET /channels/{channelId}/presence)
+	GetChannelPresence(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID)
+
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
 
@@ -435,6 +548,12 @@ type ServerInterface interface {
 
 	// (PUT /members/{memberId}/role)
 	ChangeRole(w http.ResponseWriter, r *http.Request, memberId string)
+
+	// (DELETE /messages/{messageId})
+	DeleteMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID)
+
+	// (PUT /messages/{messageId})
+	EditMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID)
 
 	// (GET /projects)
 	ListProjects(w http.ResponseWriter, r *http.Request)
@@ -456,6 +575,9 @@ type ServerInterface interface {
 
 	// (POST /projects/{projectId}/tasks)
 	CreateTask(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (GET /realtime)
+	GetRealtime(w http.ResponseWriter, r *http.Request)
 
 	// (DELETE /tasks/{taskId})
 	DeleteTask(w http.ResponseWriter, r *http.Request, taskId string)
@@ -535,6 +657,36 @@ func (_ Unimplemented) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /channels)
+func (_ Unimplemented) ListChannels(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /channels)
+func (_ Unimplemented) CreateChannel(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /channels/{channelId})
+func (_ Unimplemented) GetChannel(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /channels/{channelId}/messages)
+func (_ Unimplemented) ListMessages(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID, params ListMessagesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /channels/{channelId}/messages)
+func (_ Unimplemented) PostMessage(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /channels/{channelId}/presence)
+func (_ Unimplemented) GetChannelPresence(w http.ResponseWriter, r *http.Request, channelId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /healthz)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -557,6 +709,16 @@ func (_ Unimplemented) ListMembers(w http.ResponseWriter, r *http.Request) {
 
 // (PUT /members/{memberId}/role)
 func (_ Unimplemented) ChangeRole(w http.ResponseWriter, r *http.Request, memberId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /messages/{messageId})
+func (_ Unimplemented) DeleteMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /messages/{messageId})
+func (_ Unimplemented) EditMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -592,6 +754,11 @@ func (_ Unimplemented) GetRisk(w http.ResponseWriter, r *http.Request, projectId
 
 // (POST /projects/{projectId}/tasks)
 func (_ Unimplemented) CreateTask(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /realtime)
+func (_ Unimplemented) GetRealtime(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -854,6 +1021,201 @@ func (siw *ServerInterfaceWrapper) CreateWorkspace(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListChannels operation middleware
+func (siw *ServerInterfaceWrapper) ListChannels(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListChannels(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateChannel operation middleware
+func (siw *ServerInterfaceWrapper) CreateChannel(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateChannel(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetChannel operation middleware
+func (siw *ServerInterfaceWrapper) GetChannel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "channelId" -------------
+	var channelId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channelId", chi.URLParam(r, "channelId"), &channelId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channelId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChannel(w, r, channelId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMessages operation middleware
+func (siw *ServerInterfaceWrapper) ListMessages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "channelId" -------------
+	var channelId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channelId", chi.URLParam(r, "channelId"), &channelId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channelId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMessagesParams
+
+	// ------------- Optional query parameter "thread_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "thread_id", r.URL.Query(), &params.ThreadId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "thread_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "before", r.URL.Query(), &params.Before)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMessages(w, r, channelId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostMessage operation middleware
+func (siw *ServerInterfaceWrapper) PostMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "channelId" -------------
+	var channelId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channelId", chi.URLParam(r, "channelId"), &channelId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channelId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostMessage(w, r, channelId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetChannelPresence operation middleware
+func (siw *ServerInterfaceWrapper) GetChannelPresence(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "channelId" -------------
+	var channelId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channelId", chi.URLParam(r, "channelId"), &channelId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channelId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChannelPresence(w, r, channelId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -956,6 +1318,72 @@ func (siw *ServerInterfaceWrapper) ChangeRole(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangeRole(w, r, memberId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMessage operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "messageId" -------------
+	var messageId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageId", chi.URLParam(r, "messageId"), &messageId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMessage(w, r, messageId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EditMessage operation middleware
+func (siw *ServerInterfaceWrapper) EditMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "messageId" -------------
+	var messageId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageId", chi.URLParam(r, "messageId"), &messageId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EditMessage(w, r, messageId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1159,6 +1587,26 @@ func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateTask(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRealtime operation middleware
+func (siw *ServerInterfaceWrapper) GetRealtime(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRealtime(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1520,6 +1968,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/auth/workspaces", wrapper.CreateWorkspace)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/channels", wrapper.ListChannels)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/channels", wrapper.CreateChannel)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/channels/{channelId}", wrapper.GetChannel)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/channels/{channelId}/messages", wrapper.ListMessages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/channels/{channelId}/messages", wrapper.PostMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/channels/{channelId}/presence", wrapper.GetChannelPresence)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
@@ -1533,6 +1999,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/members/{memberId}/role", wrapper.ChangeRole)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/messages/{messageId}", wrapper.DeleteMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/messages/{messageId}", wrapper.EditMessage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/projects", wrapper.ListProjects)
@@ -1554,6 +2026,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/projects/{projectId}/tasks", wrapper.CreateTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/realtime", wrapper.GetRealtime)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/tasks/{taskId}", wrapper.DeleteTask)

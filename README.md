@@ -1,6 +1,6 @@
 # Slipgraph
 
-Multi-tenant team workspace with identity, projects, tasks, and dependency risk. Go modular monolith, Postgres 16 with
+Multi-tenant team workspace with identity, projects, tasks, chat, realtime presence, and dependency risk. Go modular monolith, Postgres 16 with
 pgvector, Redis, React/TypeScript. Agents will propose changes for human approval.
 
 ## Start
@@ -65,13 +65,18 @@ their own role. Secure cookies work on trusted localhost development origins;
 production requires HTTPS. Set PUBLIC_ORIGIN when changing the browser origin.
 Password-reset primitives exist internally, but no email/recovery UI is enabled.
 
-The worker processes transactional events for audit and risk with idempotent
+Open Chat to create workspace-wide channels, post messages, start threads, mention
+teammates, and insert task cards. Writers may edit/delete only their own messages.
+Viewers can read. Online/typing indicators expire automatically. Reconnecting clients
+reload history; failed optimistic sends can be retried without duplicate messages.
+
+The worker processes transactional events for audit, risk, and chat fanout with idempotent
 receipts. Administrators can verify the current workspace audit chain through
 `GET /api/audit/verify` or run `/app/slipgraph audit verify` in the API container
 with `SLIPGRAPH_SESSION` containing their own access cookie (supply securely through
 the environment; never paste it into Git, logs, or command history).
 
 `make test` includes the 10k graph benchmark with a 200 ms budget. Database and
-identity/project integration suites run as separate Docker-backed invocations.
+identity/project/chat integration suites run as separate Docker-backed invocations.
 Comments, AI agents, and automatic proposal execution are not enabled. See [architecture](docs/ARCHITECTURE.md) and the
 [security checklist](docs/THREAT_MODEL.md) for the nine foundations and feature gates.

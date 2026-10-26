@@ -1,25 +1,32 @@
 package httpserver
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/slipgraph/slipgraph/internal/auth"
+	"github.com/slipgraph/slipgraph/internal/chat"
 	"github.com/slipgraph/slipgraph/internal/platform/contract"
 	"github.com/slipgraph/slipgraph/internal/platform/logging"
 	"github.com/slipgraph/slipgraph/internal/policy"
+	"github.com/slipgraph/slipgraph/internal/realtime"
 	"github.com/slipgraph/slipgraph/internal/tasks"
 )
 
 type Probe func(context.Context) error
 type taskEndpoints = tasks.HTTP
+type chatEndpoints = chat.HTTP
 type Handler struct {
 	*taskEndpoints
+	*chatEndpoints
+	*realtime.Gateway
 	*auth.HTTP
 	probes []Probe
 }
@@ -49,9 +56,12 @@ func New(logger *slog.Logger, probes ...Probe) http.Handler {
 	return r
 }
 func NewAPI(logger *slog.Logger, identity *auth.HTTP, probes ...Probe) http.Handler {
+	return NewRealtimeAPI(logger, identity, nil, probes...)
+}
+func NewRealtimeAPI(logger *slog.Logger, identity *auth.HTTP, gateway *realtime.Gateway, probes ...Probe) http.Handler {
 	r := chi.NewRouter()
 	r.Use(Middleware(logger))
-	h := &Handler{HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
+	h := &Handler{Gateway: gateway, chatEndpoints: &chat.HTTP{Store: &chat.Store{Auth: identity.Service}, Identity: identity}, HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
 	return contract.HandlerFromMux(h, r)
 }
 
@@ -72,6 +82,13 @@ func (w *recorder) Write(b []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 	return w.ResponseWriter.Write(b)
+}
+func (w *recorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, rw, err := http.NewResponseController(w.ResponseWriter).Hijack()
+	if err == nil {
+		w.status = 101
+	}
+	return conn, rw, err
 }
 func (w *recorder) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 func Middleware(logger *slog.Logger) func(http.Handler) http.Handler {
