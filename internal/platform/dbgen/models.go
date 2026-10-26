@@ -8,15 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type AppLink struct {
-	ID          pgtype.UUID
-	WorkspaceID pgtype.UUID
-	FromObject  pgtype.UUID
-	ToObject    pgtype.UUID
-	LinkType    string
-	CreatedAt   pgtype.Timestamptz
-}
-
 type AppObject struct {
 	ID          pgtype.UUID
 	WorkspaceID pgtype.UUID
@@ -25,15 +16,4 @@ type AppObject struct {
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
 	DeletedAt   pgtype.Timestamptz
-}
-
-type AppOutbox struct {
-	ID          pgtype.UUID
-	WorkspaceID pgtype.UUID
-	ObjectID    pgtype.UUID
-	ActorID     pgtype.UUID
-	EventType   string
-	Payload     []byte
-	CreatedAt   pgtype.Timestamptz
-	PublishedAt pgtype.Timestamptz
 }

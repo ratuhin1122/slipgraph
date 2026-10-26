@@ -9,6 +9,8 @@ GRANT CONNECT ON DATABASE slipgraph TO slipgraph_owner, slipgraph_app;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 GRANT USAGE ON SCHEMA public TO slipgraph_owner, slipgraph_app;
+CREATE SCHEMA identity AUTHORIZATION slipgraph_owner;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 CREATE SCHEMA app AUTHORIZATION slipgraph_owner;
 CREATE SCHEMA migrations AUTHORIZATION slipgraph_owner;
 GRANT USAGE ON SCHEMA app TO slipgraph_app;

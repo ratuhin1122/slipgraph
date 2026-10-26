@@ -118,14 +118,14 @@ func TestTenantIsolationAndRoleSafety(t *testing.T) {
 	ids := []uuid.UUID{uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())}
 	actor := uuid.Must(uuid.NewV7())
 	for i, workspace := range workspaces {
-		err = WithTenant(ctx, pool, workspace, func(tx pgx.Tx) error {
+		err = WithTenant(ctx, pool, workspace, func(tx TenantTx) error {
 			if _, err := tx.Exec(ctx, `INSERT INTO app.objects(id,workspace_id,type,created_by) VALUES($1,$2,'task',$3)`, ids[i], workspace, actor); err != nil {
 				return err
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO app.links(id,workspace_id,from_object,to_object,link_type) VALUES($1,$2,$3,$3,'mentions')`, uuid.Must(uuid.NewV7()), workspace, ids[i]); err != nil {
 				return err
 			}
-			_, err := tx.Exec(ctx, `INSERT INTO app.outbox(id,workspace_id,object_id,actor_id,event_type,payload) VALUES($1,$2,$3,$4,'object.created','{}')`, uuid.Must(uuid.NewV7()), workspace, ids[i], actor)
+			_, err := tx.Exec(ctx, `INSERT INTO app.events(id,workspace_id,object_id,actor_id,event_type,payload) VALUES($1,$2,$3,$4,'object.created','{}')`, uuid.Must(uuid.NewV7()), workspace, ids[i], actor)
 			return err
 		})
 		if err != nil {
@@ -134,8 +134,8 @@ func TestTenantIsolationAndRoleSafety(t *testing.T) {
 	}
 	for i, workspace := range workspaces {
 		t.Run(fmt.Sprintf("workspace-%d", i), func(t *testing.T) {
-			if err := WithTenant(ctx, pool, workspace, func(tx pgx.Tx) error {
-				for _, table := range []string{"objects", "links", "outbox"} {
+			if err := WithTenant(ctx, pool, workspace, func(tx TenantTx) error {
+				for _, table := range []string{"objects", "links", "events"} {
 					var count int
 					// Identifiers are an internal fixed allow-list, never request data.
 					query := `SELECT count(*) FROM app.` + pgx.Identifier{table}.Sanitize()
@@ -178,14 +178,14 @@ func TestTenantIsolationAndRoleSafety(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			err := WithTenant(ctx, pool, workspace, func(tx pgx.Tx) error {
+			err := WithTenant(ctx, pool, workspace, func(tx TenantTx) error {
 				_, err := tx.Exec(ctx, `INSERT INTO app.objects(id,workspace_id,type,created_by) VALUES($1,$2,'task',$3)`, uuid.Must(uuid.NewV7()), workspaces[1-i], actor)
 				return err
 			})
 			if err == nil {
 				t.Fatal("cross-tenant write accepted")
 			}
-			err = WithTenant(ctx, pool, workspace, func(tx pgx.Tx) error {
+			err = WithTenant(ctx, pool, workspace, func(tx TenantTx) error {
 				_, err := tx.Exec(ctx, `INSERT INTO app.links(id,workspace_id,from_object,to_object,link_type) VALUES($1,$2,$3,$4,'blocked_by')`, uuid.Must(uuid.NewV7()), workspace, ids[i], ids[1-i])
 				return err
 			})
@@ -196,7 +196,7 @@ func TestTenantIsolationAndRoleSafety(t *testing.T) {
 	}
 	// A reused pooled connection loses the tenant after both commit and rollback.
 	for _, rollback := range []bool{false, true} {
-		_ = WithTenant(ctx, pool, workspaces[0], func(pgx.Tx) error {
+		_ = WithTenant(ctx, pool, workspaces[0], func(TenantTx) error {
 			if rollback {
 				return fmt.Errorf("rollback requested")
 			}
@@ -210,8 +210,15 @@ func TestTenantIsolationAndRoleSafety(t *testing.T) {
 			t.Fatal("tenant setting leaked from transaction")
 		}
 	}
-	if err := WithTenant(ctx, pool, uuid.Nil, func(pgx.Tx) error { return nil }); err == nil {
+	if err := WithTenant(ctx, pool, uuid.Nil, func(TenantTx) error { return nil }); err == nil {
 		t.Fatal("missing workspace accepted")
+	}
+	var escaped TenantTx
+	if err := WithTenant(ctx, pool, workspaces[0], func(tx TenantTx) error { escaped = tx; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := escaped.Exec(ctx, "SELECT 1"); err == nil {
+		t.Fatal("tenant capability survived its callback")
 	}
 	// Catalog checks detect future migration regressions and privileged memberships.
 	for _, statement := range []string{

@@ -11,3 +11,4 @@ sql:
         out: internal/platform/dbgen
         sql_package: pgx/v5
         emit_empty_slices: true
+        omit_unused_structs: true

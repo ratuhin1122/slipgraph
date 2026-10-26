@@ -5,12 +5,17 @@ package contract
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
-	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
+	"github.com/oapi-codegen/runtime"
+)
+
+const (
+	CsrfTokenScopes     = "csrfToken.Scopes"
+	SessionCookieScopes = "sessionCookie.Scopes"
 )
 
 // Defines values for HealthStatus.
@@ -18,6 +23,84 @@ const (
 	Ok          HealthStatus = "ok"
 	Unavailable HealthStatus = "unavailable"
 )
+
+// Defines values for InviteInputRole.
+const (
+	InviteInputRoleMember InviteInputRole = "member"
+	InviteInputRoleViewer InviteInputRole = "viewer"
+)
+
+// Defines values for RiskEnvelopeStatus.
+const (
+	Pending RiskEnvelopeStatus = "pending"
+	Ready   RiskEnvelopeStatus = "ready"
+)
+
+// Defines values for Role.
+const (
+	RoleAdmin  Role = "admin"
+	RoleMember Role = "member"
+	RoleViewer Role = "viewer"
+)
+
+// Defines values for TaskImpactRisk.
+const (
+	High   TaskImpactRisk = "high"
+	Low    TaskImpactRisk = "low"
+	Medium TaskImpactRisk = "medium"
+	None   TaskImpactRisk = "none"
+)
+
+// Defines values for TaskStatus.
+const (
+	Blocked    TaskStatus = "blocked"
+	Cancelled  TaskStatus = "cancelled"
+	Done       TaskStatus = "done"
+	InProgress TaskStatus = "in_progress"
+	Todo       TaskStatus = "todo"
+)
+
+// AuditVerification defines model for AuditVerification.
+type AuditVerification struct {
+	Entries int64  `json:"entries"`
+	Head    string `json:"head"`
+	Valid   bool   `json:"valid"`
+}
+
+// Board defines model for Board.
+type Board struct {
+	Dependencies []Dependency `json:"dependencies"`
+	Project      Project      `json:"project"`
+	Tasks        []Task       `json:"tasks"`
+}
+
+// CSRF defines model for CSRF.
+type CSRF struct {
+	CsrfToken string `json:"csrf_token"`
+}
+
+// DelayInput defines model for DelayInput.
+type DelayInput struct {
+	Days    int   `json:"days"`
+	Version int64 `json:"version"`
+}
+
+// Dependency defines model for Dependency.
+type Dependency struct {
+	BlockerId string `json:"blocker_id"`
+	TaskId    string `json:"task_id"`
+}
+
+// DependencyInput defines model for DependencyInput.
+type DependencyInput struct {
+	BlockerId string `json:"blocker_id"`
+	Version   int64  `json:"version"`
+}
+
+// Error defines model for Error.
+type Error struct {
+	Error string `json:"error"`
+}
 
 // Health defines model for Health.
 type Health struct {
@@ -27,20 +110,518 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// InviteInput defines model for InviteInput.
+type InviteInput struct {
+	Email string          `json:"email"`
+	Role  InviteInputRole `json:"role"`
+}
+
+// InviteInputRole defines model for InviteInput.Role.
+type InviteInputRole string
+
+// InviteToken defines model for InviteToken.
+type InviteToken struct {
+	Token string `json:"token"`
+}
+
+// LoginInput defines model for LoginInput.
+type LoginInput struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Member defines model for Member.
+type Member struct {
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	Id          string `json:"id"`
+	Role        Role   `json:"role"`
+	UserId      string `json:"user_id"`
+	Version     int64  `json:"version"`
+}
+
+// NameInput defines model for NameInput.
+type NameInput struct {
+	Name string `json:"name"`
+}
+
+// Project defines model for Project.
+type Project struct {
+	Description  string     `json:"description"`
+	GraphVersion int64      `json:"graph_version"`
+	Id           string     `json:"id"`
+	LaunchDue    *time.Time `json:"launch_due"`
+	Name         string     `json:"name"`
+	Start        time.Time  `json:"start"`
+	Version      int64      `json:"version"`
+}
+
+// ProjectInput defines model for ProjectInput.
+type ProjectInput struct {
+	Description string     `json:"description"`
+	LaunchDue   *time.Time `json:"launch_due"`
+	Name        string     `json:"name"`
+	Start       time.Time  `json:"start"`
+}
+
+// ProjectUpdateInput defines model for ProjectUpdateInput.
+type ProjectUpdateInput struct {
+	Description string     `json:"description"`
+	LaunchDue   *time.Time `json:"launch_due"`
+	Name        string     `json:"name"`
+	Start       time.Time  `json:"start"`
+	Version     int64      `json:"version"`
+}
+
+// RiskAssessment defines model for RiskAssessment.
+type RiskAssessment struct {
+	AlgorithmVersion   string       `json:"algorithm_version"`
+	BaselineFinish     time.Time    `json:"baseline_finish"`
+	CriticalPath       []string     `json:"critical_path"`
+	ForecastFinish     time.Time    `json:"forecast_finish"`
+	LaunchSlipMinutes  int64        `json:"launch_slip_minutes"`
+	ProjectSlipMinutes int64        `json:"project_slip_minutes"`
+	Tasks              []TaskImpact `json:"tasks"`
+}
+
+// RiskEnvelope defines model for RiskEnvelope.
+type RiskEnvelope struct {
+	AssessedAt   *time.Time         `json:"assessed_at"`
+	Assessment   *RiskAssessment    `json:"assessment"`
+	GraphVersion int64              `json:"graph_version"`
+	Stale        bool               `json:"stale"`
+	Status       RiskEnvelopeStatus `json:"status"`
+	Version      int64              `json:"version"`
+}
+
+// RiskEnvelopeStatus defines model for RiskEnvelope.Status.
+type RiskEnvelopeStatus string
+
+// Role defines model for Role.
+type Role string
+
+// RoleInput defines model for RoleInput.
+type RoleInput struct {
+	Role    Role  `json:"role"`
+	Version int64 `json:"version"`
+}
+
+// Session defines model for Session.
+type Session struct {
+	ExpiresAt     time.Time `json:"expires_at"`
+	Id            string    `json:"id"`
+	Role          Role      `json:"role"`
+	User          User      `json:"user"`
+	WorkspaceId   *string   `json:"workspace_id,omitempty"`
+	WorkspaceName string    `json:"workspace_name"`
+}
+
+// SessionInfo defines model for SessionInfo.
+type SessionInfo struct {
+	CreatedAt   time.Time `json:"created_at"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	Id          string    `json:"id"`
+	Revoked     bool      `json:"revoked"`
+	WorkspaceId string    `json:"workspace_id"`
+}
+
+// SignupInput defines model for SignupInput.
+type SignupInput struct {
+	DisplayName   string `json:"display_name"`
+	Email         string `json:"email"`
+	Password      string `json:"password"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// Task defines model for Task.
+type Task struct {
+	CompletedAt      *time.Time `json:"completed_at"`
+	Description      string     `json:"description"`
+	Due              time.Time  `json:"due"`
+	EstimateMinutes  int64      `json:"estimate_minutes"`
+	ForecastFinishAt *time.Time `json:"forecast_finish_at"`
+	Id               string     `json:"id"`
+	Milestone        bool       `json:"milestone"`
+
+	// OwnerId Workspace membership object ID. The generic owned_by link stores ownership.
+	OwnerId           *string    `json:"owner_id"`
+	ProjectId         *string    `json:"project_id,omitempty"`
+	ReportedDelayDays int        `json:"reported_delay_days"`
+	Start             time.Time  `json:"start"`
+	Status            TaskStatus `json:"status"`
+	Title             string     `json:"title"`
+	Version           int64      `json:"version"`
+}
+
+// TaskImpact defines model for TaskImpact.
+type TaskImpact struct {
+	Affected              bool           `json:"affected"`
+	BaselineFinish        time.Time      `json:"baseline_finish"`
+	BaselineStart         time.Time      `json:"baseline_start"`
+	Critical              bool           `json:"critical"`
+	EarliestFinish        time.Time      `json:"earliest_finish"`
+	EarliestStart         time.Time      `json:"earliest_start"`
+	Milestone             bool           `json:"milestone"`
+	MilestoneSlipMinutes  int64          `json:"milestone_slip_minutes"`
+	RemainingSlackMinutes int64          `json:"remaining_slack_minutes"`
+	Risk                  TaskImpactRisk `json:"risk"`
+	SlackConsumedMinutes  int64          `json:"slack_consumed_minutes"`
+	SlipMinutes           int64          `json:"slip_minutes"`
+	TaskId                string         `json:"task_id"`
+}
+
+// TaskImpactRisk defines model for TaskImpact.Risk.
+type TaskImpactRisk string
+
+// TaskInput defines model for TaskInput.
+type TaskInput struct {
+	Description     string    `json:"description"`
+	Due             time.Time `json:"due"`
+	EstimateMinutes int64     `json:"estimate_minutes"`
+	Milestone       bool      `json:"milestone"`
+
+	// OwnerId Workspace membership object ID. The generic owned_by link stores ownership.
+	OwnerId *string    `json:"owner_id"`
+	Start   time.Time  `json:"start"`
+	Status  TaskStatus `json:"status"`
+	Title   string     `json:"title"`
+}
+
+// TaskStatus defines model for TaskStatus.
+type TaskStatus string
+
+// TaskUpdateInput defines model for TaskUpdateInput.
+type TaskUpdateInput struct {
+	Description     string    `json:"description"`
+	Due             time.Time `json:"due"`
+	EstimateMinutes int64     `json:"estimate_minutes"`
+	Milestone       bool      `json:"milestone"`
+
+	// OwnerId Workspace membership object ID. The generic owned_by link stores ownership.
+	OwnerId *string    `json:"owner_id"`
+	Start   time.Time  `json:"start"`
+	Status  TaskStatus `json:"status"`
+	Title   string     `json:"title"`
+	Version int64      `json:"version"`
+}
+
+// TicketInput defines model for TicketInput.
+type TicketInput struct {
+	Ticket string `json:"ticket"`
+}
+
+// TokenInput defines model for TokenInput.
+type TokenInput struct {
+	Token string `json:"token"`
+}
+
+// User defines model for User.
+type User struct {
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	Id          string `json:"id"`
+}
+
+// VersionInput defines model for VersionInput.
+type VersionInput struct {
+	Version int64 `json:"version"`
+}
+
+// Workspace defines model for Workspace.
+type Workspace struct {
+	Id   *string `json:"id,omitempty"`
+	Name string  `json:"name"`
+	Role Role    `json:"role"`
+
+	// SwitchToken Single-use ticket bound to the authenticated user, not a caller-chosen workspace ID.
+	SwitchToken string `json:"switch_token"`
+}
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginInput
+
+// SignupJSONRequestBody defines body for Signup for application/json ContentType.
+type SignupJSONRequestBody = SignupInput
+
+// SwitchWorkspaceJSONRequestBody defines body for SwitchWorkspace for application/json ContentType.
+type SwitchWorkspaceJSONRequestBody = TicketInput
+
+// CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
+type CreateWorkspaceJSONRequestBody = NameInput
+
+// CreateInviteJSONRequestBody defines body for CreateInvite for application/json ContentType.
+type CreateInviteJSONRequestBody = InviteInput
+
+// AcceptInviteJSONRequestBody defines body for AcceptInvite for application/json ContentType.
+type AcceptInviteJSONRequestBody = TokenInput
+
+// ChangeRoleJSONRequestBody defines body for ChangeRole for application/json ContentType.
+type ChangeRoleJSONRequestBody = RoleInput
+
+// CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
+type CreateProjectJSONRequestBody = ProjectInput
+
+// DeleteProjectJSONRequestBody defines body for DeleteProject for application/json ContentType.
+type DeleteProjectJSONRequestBody = VersionInput
+
+// UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
+type UpdateProjectJSONRequestBody = ProjectUpdateInput
+
+// CreateTaskJSONRequestBody defines body for CreateTask for application/json ContentType.
+type CreateTaskJSONRequestBody = TaskInput
+
+// DeleteTaskJSONRequestBody defines body for DeleteTask for application/json ContentType.
+type DeleteTaskJSONRequestBody = VersionInput
+
+// UpdateTaskJSONRequestBody defines body for UpdateTask for application/json ContentType.
+type UpdateTaskJSONRequestBody = TaskUpdateInput
+
+// ReportDelayJSONRequestBody defines body for ReportDelay for application/json ContentType.
+type ReportDelayJSONRequestBody = DelayInput
+
+// AddDependencyJSONRequestBody defines body for AddDependency for application/json ContentType.
+type AddDependencyJSONRequestBody = DependencyInput
+
+// RemoveDependencyJSONRequestBody defines body for RemoveDependency for application/json ContentType.
+type RemoveDependencyJSONRequestBody = VersionInput
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Check database and Redis readiness
+
+	// (GET /audit/verify)
+	VerifyAudit(w http.ResponseWriter, r *http.Request)
+
+	// (GET /auth/csrf)
+	GetCSRF(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/refresh)
+	Refresh(w http.ResponseWriter, r *http.Request)
+
+	// (GET /auth/session)
+	GetSession(w http.ResponseWriter, r *http.Request)
+
+	// (GET /auth/sessions)
+	ListSessions(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/signup)
+	Signup(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/workspace-switch)
+	SwitchWorkspace(w http.ResponseWriter, r *http.Request)
+
+	// (GET /auth/workspaces)
+	ListWorkspaces(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/workspaces)
+	CreateWorkspace(w http.ResponseWriter, r *http.Request)
+
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+
+	// (POST /invites)
+	CreateInvite(w http.ResponseWriter, r *http.Request)
+
+	// (POST /invites/accept)
+	AcceptInvite(w http.ResponseWriter, r *http.Request)
+
+	// (GET /members)
+	ListMembers(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /members/{memberId}/role)
+	ChangeRole(w http.ResponseWriter, r *http.Request, memberId string)
+
+	// (GET /projects)
+	ListProjects(w http.ResponseWriter, r *http.Request)
+
+	// (POST /projects)
+	CreateProject(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /projects/{projectId})
+	DeleteProject(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (GET /projects/{projectId})
+	GetProject(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (PUT /projects/{projectId})
+	UpdateProject(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (GET /projects/{projectId}/risk)
+	GetRisk(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (POST /projects/{projectId}/tasks)
+	CreateTask(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (DELETE /tasks/{taskId})
+	DeleteTask(w http.ResponseWriter, r *http.Request, taskId string)
+
+	// (GET /tasks/{taskId})
+	GetTask(w http.ResponseWriter, r *http.Request, taskId string)
+
+	// (PUT /tasks/{taskId})
+	UpdateTask(w http.ResponseWriter, r *http.Request, taskId string)
+
+	// (POST /tasks/{taskId}/delay)
+	ReportDelay(w http.ResponseWriter, r *http.Request, taskId string)
+
+	// (POST /tasks/{taskId}/dependencies)
+	AddDependency(w http.ResponseWriter, r *http.Request, taskId string)
+
+	// (DELETE /tasks/{taskId}/dependencies/{blockerId})
+	RemoveDependency(w http.ResponseWriter, r *http.Request, taskId string, blockerId string)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
 
-// Check database and Redis readiness
+// (GET /audit/verify)
+func (_ Unimplemented) VerifyAudit(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /auth/csrf)
+func (_ Unimplemented) GetCSRF(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/login)
+func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/refresh)
+func (_ Unimplemented) Refresh(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /auth/session)
+func (_ Unimplemented) GetSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /auth/sessions)
+func (_ Unimplemented) ListSessions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/signup)
+func (_ Unimplemented) Signup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/workspace-switch)
+func (_ Unimplemented) SwitchWorkspace(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /auth/workspaces)
+func (_ Unimplemented) ListWorkspaces(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/workspaces)
+func (_ Unimplemented) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /healthz)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /invites)
+func (_ Unimplemented) CreateInvite(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /invites/accept)
+func (_ Unimplemented) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /members)
+func (_ Unimplemented) ListMembers(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /members/{memberId}/role)
+func (_ Unimplemented) ChangeRole(w http.ResponseWriter, r *http.Request, memberId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /projects)
+func (_ Unimplemented) ListProjects(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /projects)
+func (_ Unimplemented) CreateProject(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /projects/{projectId})
+func (_ Unimplemented) DeleteProject(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /projects/{projectId})
+func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /projects/{projectId})
+func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /projects/{projectId}/risk)
+func (_ Unimplemented) GetRisk(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /projects/{projectId}/tasks)
+func (_ Unimplemented) CreateTask(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /tasks/{taskId})
+func (_ Unimplemented) DeleteTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /tasks/{taskId})
+func (_ Unimplemented) GetTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /tasks/{taskId})
+func (_ Unimplemented) UpdateTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /tasks/{taskId}/delay)
+func (_ Unimplemented) ReportDelay(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /tasks/{taskId}/dependencies)
+func (_ Unimplemented) AddDependency(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /tasks/{taskId}/dependencies/{blockerId})
+func (_ Unimplemented) RemoveDependency(w http.ResponseWriter, r *http.Request, taskId string, blockerId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -53,11 +634,736 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// VerifyAudit operation middleware
+func (siw *ServerInterfaceWrapper) VerifyAudit(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyAudit(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCSRF operation middleware
+func (siw *ServerInterfaceWrapper) GetCSRF(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCSRF(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Refresh operation middleware
+func (siw *ServerInterfaceWrapper) Refresh(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Refresh(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSession operation middleware
+func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSessions operation middleware
+func (siw *ServerInterfaceWrapper) ListSessions(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSessions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Signup operation middleware
+func (siw *ServerInterfaceWrapper) Signup(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Signup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SwitchWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) SwitchWorkspace(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SwitchWorkspace(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListWorkspaces operation middleware
+func (siw *ServerInterfaceWrapper) ListWorkspaces(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWorkspaces(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWorkspace(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateInvite operation middleware
+func (siw *ServerInterfaceWrapper) CreateInvite(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateInvite(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptInvite operation middleware
+func (siw *ServerInterfaceWrapper) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptInvite(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMembers operation middleware
+func (siw *ServerInterfaceWrapper) ListMembers(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMembers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangeRole operation middleware
+func (siw *ServerInterfaceWrapper) ChangeRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "memberId" -------------
+	var memberId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memberId", chi.URLParam(r, "memberId"), &memberId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memberId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangeRole(w, r, memberId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProjects operation middleware
+func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjects(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProject operation middleware
+func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProject(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProject operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProject operation middleware
+func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProject operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRisk operation middleware
+func (siw *ServerInterfaceWrapper) GetRisk(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRisk(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTask operation middleware
+func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTask(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTask operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTask operation middleware
+func (siw *ServerInterfaceWrapper) GetTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTask operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReportDelay operation middleware
+func (siw *ServerInterfaceWrapper) ReportDelay(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportDelay(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddDependency operation middleware
+func (siw *ServerInterfaceWrapper) AddDependency(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddDependency(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveDependency operation middleware
+func (siw *ServerInterfaceWrapper) RemoveDependency(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "blockerId" -------------
+	var blockerId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "blockerId", chi.URLParam(r, "blockerId"), &blockerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "blockerId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveDependency(w, r, taskId, blockerId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -181,93 +1487,92 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/audit/verify", wrapper.VerifyAudit)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/csrf", wrapper.GetCSRF)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/refresh", wrapper.Refresh)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/session", wrapper.GetSession)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/sessions", wrapper.ListSessions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/signup", wrapper.Signup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/workspace-switch", wrapper.SwitchWorkspace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/workspaces", wrapper.ListWorkspaces)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/workspaces", wrapper.CreateWorkspace)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/invites", wrapper.CreateInvite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/invites/accept", wrapper.AcceptInvite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/members", wrapper.ListMembers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/members/{memberId}/role", wrapper.ChangeRole)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/projects", wrapper.ListProjects)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/projects", wrapper.CreateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/projects/{projectId}", wrapper.DeleteProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/projects/{projectId}", wrapper.GetProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/projects/{projectId}", wrapper.UpdateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/projects/{projectId}/risk", wrapper.GetRisk)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/projects/{projectId}/tasks", wrapper.CreateTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/tasks/{taskId}", wrapper.DeleteTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/tasks/{taskId}", wrapper.GetTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/tasks/{taskId}", wrapper.UpdateTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/tasks/{taskId}/delay", wrapper.ReportDelay)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/tasks/{taskId}/dependencies", wrapper.AddDependency)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/tasks/{taskId}/dependencies/{blockerId}", wrapper.RemoveDependency)
 	})
 
 	return r
-}
-
-type GetHealthRequestObject struct {
-}
-
-type GetHealthResponseObject interface {
-	VisitGetHealthResponse(w http.ResponseWriter) error
-}
-
-type GetHealth200JSONResponse Health
-
-func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetHealth503JSONResponse Health
-
-func (response GetHealth503JSONResponse) VisitGetHealthResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(503)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-// StrictServerInterface represents all server handlers.
-type StrictServerInterface interface {
-	// Check database and Redis readiness
-	// (GET /healthz)
-	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
-}
-
-type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
-type StrictMiddlewareFunc = strictnethttp.StrictHTTPMiddlewareFunc
-
-type StrictHTTPServerOptions struct {
-	RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)
-	ResponseErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
-}
-
-func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		},
-	}}
-}
-
-func NewStrictHandlerWithOptions(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc, options StrictHTTPServerOptions) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: options}
-}
-
-type strictHandler struct {
-	ssi         StrictServerInterface
-	middlewares []StrictMiddlewareFunc
-	options     StrictHTTPServerOptions
-}
-
-// GetHealth operation middleware
-func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
-	var request GetHealthRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetHealth(ctx, request.(GetHealthRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetHealth")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
-		if err := validResponse.VisitGetHealthResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
 }

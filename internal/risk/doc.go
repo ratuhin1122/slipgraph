@@ -1,3 +1,2 @@
-// Package risk defines the risk module boundary for Slipgraph.
-// Feature implementations must enforce policy, tenant isolation, and outbox events.
+// Package risk computes deterministic calendar dependency risk and consumes scoped events.
 package risk

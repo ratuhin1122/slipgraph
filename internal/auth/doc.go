@@ -1,3 +1,2 @@
-// Package auth defines the auth module boundary for Slipgraph.
-// Feature implementations must enforce policy, tenant isolation, and outbox events.
+// Package auth owns the private global identity control plane and verified tenant sessions.
 package auth

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"errors"
 	"net"
 	"net/url"
@@ -111,3 +112,18 @@ func Load(defaultAddr string) (Config, error) {
 	}
 	return c, nil
 }
+
+// LoadAuthKey is separate from database-only migration configuration. Operators
+// supply a 256-bit hexadecimal secret; runtime images never mount owner secrets.
+func LoadAuthKey() ([]byte, error) {
+	value, err := secret("AUTH_KEY", "AUTH_KEY_FILE")
+	if err != nil {
+		return nil, err
+	}
+	key, err := hex.DecodeString(value)
+	if err != nil || len(key) != 32 {
+		return nil, errors.New("AUTH_KEY must be a 256-bit hexadecimal secret")
+	}
+	return key, nil
+}
+func PublicOrigin() string { return env("PUBLIC_ORIGIN", "http://localhost:5173") }

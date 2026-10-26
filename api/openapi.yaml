@@ -1,19 +1,22 @@
 openapi: 3.0.3
 info:
   title: Slipgraph API
-  version: 0.1.0
-  description: Multi-tenant AI team workspace. Tenant identity comes from authenticated sessions.
+  version: 0.3.0
+  description: >-
+    Workspace identity is resolved from authenticated sessions and verified membership, never
+    caller-selected scope.
 servers:
   - url: /api
+security:
+  - sessionCookie: []
 paths:
   /healthz:
     get:
       operationId: getHealth
-      summary: Check database and Redis readiness
       security: []
       responses:
         '200':
-          description: Ready
+          description: Success
           content:
             application/json:
               schema:
@@ -24,13 +27,2358 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+  /auth/csrf:
+    get:
+      operationId: getCSRF
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CSRF'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /auth/signup:
+    post:
+      operationId: signup
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupInput'
+  /auth/login:
+    post:
+      operationId: login
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+  /auth/refresh:
+    post:
+      operationId: refresh
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - csrfToken: []
+  /auth/logout:
+    post:
+      operationId: logout
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+  /auth/session:
+    get:
+      operationId: getSession
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/sessions:
+    get:
+      operationId: listSessions
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionInfo'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/workspaces:
+    get:
+      operationId: listWorkspaces
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createWorkspace
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+  /auth/workspace-switch:
+    post:
+      operationId: switchWorkspace
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+  /members:
+    get:
+      operationId: listMembers
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Member'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /members/{memberId}/role:
+    put:
+      operationId: changeRole
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleInput'
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - sessionCookie: []
+          csrfToken: []
+  /invites:
+    post:
+      operationId: createInvite
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteToken'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+  /invites/accept:
+    post:
+      operationId: acceptInvite
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+  /audit/verify:
+    get:
+      operationId: verifyAudit
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditVerification'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects:
+    get:
+      operationId: listProjects
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createProject
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+    put:
+      operationId: updateProject
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+    delete:
+      operationId: deleteProject
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+  /projects/{projectId}/tasks:
+    post:
+      operationId: createTask
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+  /projects/{projectId}/risk:
+    get:
+      operationId: getRisk
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskEnvelope'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+  /tasks/{taskId}:
+    get:
+      operationId: getTask
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+    put:
+      operationId: updateTask
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdateInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+    delete:
+      operationId: deleteTask
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+  /tasks/{taskId}/delay:
+    post:
+      operationId: reportDelay
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DelayInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+  /tasks/{taskId}/dependencies:
+    post:
+      operationId: addDependency
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DependencyInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+  /tasks/{taskId}/dependencies/{blockerId}:
+    delete:
+      operationId: removeDependency
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not permitted / invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version, duplicate dependency, or cycle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionInput'
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: blockerId
+          in: path
+          required: true
+          schema:
+            type: string
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-slipgraph_access
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: >-
+        Obtain a session-bound token from GET /auth/csrf. Required for every unsafe request,
+        including signup/login.
   schemas:
     Health:
       type: object
       additionalProperties: false
-      required: [status]
+      required:
+        - status
       properties:
         status:
           type: string
-          enum: [ok, unavailable]
+          enum:
+            - ok
+            - unavailable
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: string
+    Role:
+      type: string
+      enum:
+        - admin
+        - member
+        - viewer
+    SignupInput:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - password
+        - display_name
+        - workspace_name
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        display_name:
+          type: string
+        workspace_name:
+          type: string
+    LoginInput:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    NameInput:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    TicketInput:
+      type: object
+      additionalProperties: false
+      required:
+        - ticket
+      properties:
+        ticket:
+          type: string
+          minLength: 43
+          maxLength: 43
+    TokenInput:
+      type: object
+      additionalProperties: false
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          minLength: 43
+          maxLength: 43
+    InviteInput:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - role
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+          enum:
+            - member
+            - viewer
+    RoleInput:
+      type: object
+      additionalProperties: false
+      required:
+        - role
+        - version
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    CSRF:
+      type: object
+      additionalProperties: false
+      required:
+        - csrf_token
+      properties:
+        csrf_token:
+          type: string
+    InviteToken:
+      type: object
+      additionalProperties: false
+      required:
+        - token
+      properties:
+        token:
+          type: string
+    User:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - email
+        - display_name
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        display_name:
+          type: string
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - user
+        - workspace_id
+        - workspace_name
+        - role
+        - expires_at
+      properties:
+        id:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+        workspace_id:
+          type: string
+          readOnly: true
+        workspace_name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        expires_at:
+          type: string
+          format: date-time
+    Workspace:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - role
+        - switch_token
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        switch_token:
+          type: string
+          description: Single-use ticket bound to the authenticated user, not a caller-chosen workspace ID.
+    Member:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - user_id
+        - email
+        - display_name
+        - role
+        - version
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        email:
+          type: string
+        display_name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        version:
+          type: integer
+          format: int64
+    SessionInfo:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - workspace_id
+        - created_at
+        - expires_at
+        - revoked
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        revoked:
+          type: boolean
+    AuditVerification:
+      type: object
+      additionalProperties: false
+      required:
+        - valid
+        - entries
+        - head
+      properties:
+        valid:
+          type: boolean
+        entries:
+          type: integer
+          format: int64
+        head:
+          type: string
+    TaskStatus:
+      type: string
+      enum:
+        - todo
+        - in_progress
+        - blocked
+        - done
+        - cancelled
+    ProjectInput:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - description
+        - start
+        - launch_due
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        start:
+          type: string
+          format: date-time
+        launch_due:
+          type: string
+          format: date-time
+          nullable: true
+    ProjectUpdateInput:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - description
+        - start
+        - launch_due
+        - version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        start:
+          type: string
+          format: date-time
+        launch_due:
+          type: string
+          format: date-time
+          nullable: true
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    Project:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - description
+        - start
+        - launch_due
+        - id
+        - version
+        - graph_version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        start:
+          type: string
+          format: date-time
+        launch_due:
+          type: string
+          format: date-time
+          nullable: true
+        id:
+          type: string
+        version:
+          type: integer
+          format: int64
+        graph_version:
+          type: integer
+          format: int64
+    TaskInput:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - description
+        - status
+        - owner_id
+        - start
+        - due
+        - estimate_minutes
+        - milestone
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 32000
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        owner_id:
+          type: string
+          nullable: true
+          description: Workspace membership object ID. The generic owned_by link stores ownership.
+        start:
+          type: string
+          format: date-time
+        due:
+          type: string
+          format: date-time
+        estimate_minutes:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 5256000
+        milestone:
+          type: boolean
+    TaskUpdateInput:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - description
+        - status
+        - owner_id
+        - start
+        - due
+        - estimate_minutes
+        - milestone
+        - version
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 32000
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        owner_id:
+          type: string
+          nullable: true
+          description: Workspace membership object ID. The generic owned_by link stores ownership.
+        start:
+          type: string
+          format: date-time
+        due:
+          type: string
+          format: date-time
+        estimate_minutes:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 5256000
+        milestone:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    Task:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - description
+        - status
+        - owner_id
+        - start
+        - due
+        - estimate_minutes
+        - milestone
+        - id
+        - project_id
+        - version
+        - reported_delay_days
+        - completed_at
+        - forecast_finish_at
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 32000
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        owner_id:
+          type: string
+          nullable: true
+          description: Workspace membership object ID. The generic owned_by link stores ownership.
+        start:
+          type: string
+          format: date-time
+        due:
+          type: string
+          format: date-time
+        estimate_minutes:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 5256000
+        milestone:
+          type: boolean
+        id:
+          type: string
+        project_id:
+          type: string
+          readOnly: true
+        version:
+          type: integer
+          format: int64
+        reported_delay_days:
+          type: integer
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        forecast_finish_at:
+          type: string
+          format: date-time
+          nullable: true
+    VersionInput:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    DelayInput:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - days
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+    DependencyInput:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - blocker_id
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        blocker_id:
+          type: string
+    Dependency:
+      type: object
+      additionalProperties: false
+      required:
+        - task_id
+        - blocker_id
+      properties:
+        task_id:
+          type: string
+        blocker_id:
+          type: string
+    Board:
+      type: object
+      additionalProperties: false
+      required:
+        - project
+        - tasks
+        - dependencies
+      properties:
+        project:
+          $ref: '#/components/schemas/Project'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dependency'
+    TaskImpact:
+      type: object
+      additionalProperties: false
+      required:
+        - task_id
+        - baseline_start
+        - baseline_finish
+        - earliest_start
+        - earliest_finish
+        - slip_minutes
+        - slack_consumed_minutes
+        - remaining_slack_minutes
+        - milestone_slip_minutes
+        - milestone
+        - critical
+        - affected
+        - risk
+      properties:
+        task_id:
+          type: string
+        baseline_start:
+          type: string
+          format: date-time
+        baseline_finish:
+          type: string
+          format: date-time
+        earliest_start:
+          type: string
+          format: date-time
+        earliest_finish:
+          type: string
+          format: date-time
+        slip_minutes:
+          type: integer
+          format: int64
+        slack_consumed_minutes:
+          type: integer
+          format: int64
+        remaining_slack_minutes:
+          type: integer
+          format: int64
+        milestone_slip_minutes:
+          type: integer
+          format: int64
+        milestone:
+          type: boolean
+        critical:
+          type: boolean
+        affected:
+          type: boolean
+        risk:
+          type: string
+          enum:
+            - none
+            - low
+            - medium
+            - high
+    RiskAssessment:
+      type: object
+      additionalProperties: false
+      required:
+        - algorithm_version
+        - baseline_finish
+        - forecast_finish
+        - project_slip_minutes
+        - launch_slip_minutes
+        - critical_path
+        - tasks
+      properties:
+        algorithm_version:
+          type: string
+        baseline_finish:
+          type: string
+          format: date-time
+        forecast_finish:
+          type: string
+          format: date-time
+        project_slip_minutes:
+          type: integer
+          format: int64
+        launch_slip_minutes:
+          type: integer
+          format: int64
+        critical_path:
+          type: array
+          items:
+            type: string
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskImpact'
+    RiskEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - version
+        - graph_version
+        - stale
+        - assessed_at
+        - assessment
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - ready
+        version:
+          type: integer
+          format: int64
+        graph_version:
+          type: integer
+          format: int64
+        stale:
+          type: boolean
+        assessed_at:
+          type: string
+          format: date-time
+          nullable: true
+        assessment:
+          allOf:
+            - $ref: '#/components/schemas/RiskAssessment'
+          nullable: true

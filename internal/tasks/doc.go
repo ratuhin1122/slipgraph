@@ -1,3 +1,2 @@
-// Package tasks defines the tasks module boundary for Slipgraph.
-// Feature implementations must enforce policy, tenant isolation, and outbox events.
+// Package tasks implements scoped project, task, and dependency operations with version checks.
 package tasks

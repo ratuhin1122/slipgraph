@@ -1,115 +1,149 @@
 # Slipgraph architecture
 
-Slipgraph is a multi-tenant AI team workspace. A reported delay will traverse task
-dependencies and produce a proposal. People approve a specific proposal before an
-executor can change state. This repository currently implements the foundation and
-public readiness route; it does not implement authentication or team features.
+Slipgraph is a multi-tenant team workspace with authenticated identity, projects,
+tasks, deterministic dependency analysis, and transactional audit delivery. Agents,
+proposals, external integrations, and AI providers remain disabled.
 
 ## Runtime and boundaries
 
-One Go module contains separate `cmd/api` and `cmd/worker` binaries and a one-shot
-`cmd/migrate`. Domain modules under `internal/` have package documentation and no
-public business endpoints yet. Infrastructure lives under `internal/platform/`.
-No `pkg/` is needed until there is a deliberate externally reusable API.
-
-Postgres 16 + pgvector stores state; Redis is reserved for scoped pub/sub, rate
-limits, and presence. The worker currently serves readiness and verifies its
-runtime role. River jobs and coder/websocket handlers must be added with their
-feature, policy checks, tenant tests, and outbox consumers; no jobs are registered
-and no websocket endpoint is exposed by this scaffold.
+One Go module contains separate API and worker binaries, owner-only goose migrations,
+and the authenticated `slipgraph audit verify` command. Domain packages live under
+`internal/`; infrastructure lives under `internal/platform/`. Postgres 16 with
+pgvector holds durable state. Redis currently supplies infrastructure readiness;
+no tenant content or unscoped domain cache is stored there.
 
 ## The nine foundations
 
-1. **Tenant schema and RLS.** Every tenant table has `workspace_id`, ENABLE and FORCE
-   RLS, and USING/WITH CHECK policies. `database.WithTenant` sets
-   `app.workspace_id` with transaction-local `set_config(..., true)` (the parameterized
-   equivalent of SET LOCAL). Callers must supply a workspace resolved from an
-   authenticated session, never a request field. No tenant endpoints exist yet.
-2. **Generic objects.** `app.objects` supplies UUID IDs, workspace, type, creator,
-   UTC timestamps, and soft deletion. Future tasks, messages, docs, meetings, and
-   transcripts extend it through composite `(workspace_id, id)` foreign keys.
-   New application IDs use `uuid.NewV7`; no serial tenant IDs are introduced.
-3. **Generic links.** `app.links` represents blocked_by, mentions, derived_from,
-   and other relations. Composite foreign keys prevent cross-workspace edges.
-   Do not add feature-specific relationship columns.
-4. **Central policy.** `policy.Can(ctx, actor, action, resource)` denies by default.
-   Only the public health-read action exists. Every future HTTP route, websocket
-   message, job, and proposal executor must call this boundary. Actors are derived
-   from trusted session resolution; agent roles never imply execution authority.
-5. **Transactional events.** `app.outbox` stores tenant-scoped events. Every future
-   domain mutation and its event must commit in the same tenant transaction.
-   Audit, notification, indexing, risk, and realtime consumers will be separate
-   handlers with idempotency, tenant checks, and policy checks. The scaffold has
-   no domain mutation endpoints and no event publisher yet.
-6. **Human-approved proposals.** Agents may only produce validated pending
-   proposals. A human approves a specific proposal ID. The executor must verify
-   approval, approver policy, expiry, approved payload hash, and single execution,
-   and execute using the approver's permissions. These modules are reserved; no
-   agent or executor exists yet.
-7. **Worker-only slow work.** LLM calls, transcription, and embeddings belong in
-   River worker jobs, never request handlers. Future queue payloads carry trusted
-   workspace identity and are re-authorized on execution. Infrastructure queue
-   tables require an explicit isolation design before adding River migrations.
-8. **OpenAPI contract.** `api/openapi.yaml` defines `/healthz`. oapi-codegen produces
-   the strict Go server interface; openapi-typescript generates the frontend schema
-   and openapi-fetch supplies its typed client. `make gen` regenerates Go, SQL, and
-   TypeScript outputs; CI checks for drift. Never hand-edit generated files.
-9. **LLM provider boundary.** Future LLM work uses an interface with anthropic,
-   openai, and deterministic mock providers. Workspace content is untrusted data,
-   delimited away from instructions. JSON schema validation, quotas, token/step
-   caps, and timeouts are required before a provider is enabled. The scaffold
-   makes no model calls.
+1. **Tenant schema and RLS.** Every business table in `app` has `workspace_id`,
+   ENABLE/FORCE RLS, explicit grants, and tenant-aware composite keys. Runtime is
+   `slipgraph_app`, never an owner, superuser, privileged member, or BYPASSRLS role.
+   `database.WithTenant` uses transaction-local `set_config(..., true)` and supplies
+   a sealed `TenantTx` capability that expires after its callback. Tenant identity
+   is resolved from an authenticated session and verified membership. The approved
+   global identity exception is described below; it is not a business-data escape.
+2. **Generic objects.** Workspaces, tenant member projections, projects, tasks, and
+   risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
+   Application IDs are UUIDv7. Mutable objects use versions and soft deletion.
+3. **Generic links.** `app.links` stores task-to-project `belongs_to`, task-to-member
+   `owned_by`, task-to-blocker `blocked_by`, and assessment-to-project relationships.
+   Composite foreign keys prevent cross-workspace references. Relationship columns
+   are not duplicated in feature tables. Ownership IDs refer to tenant member objects.
+4. **Central policy.** `policy.Can` fails closed for unknown actions. Public health
+   and limited authentication entry points are explicit. Verified admins manage
+   invites and other members' roles; admins and members edit projects/tasks; viewers
+   read. A user cannot change their own role. Every tenant route and worker consumer
+   rechecks authorization; job actors come from authenticated service sessions.
+5. **Transactional events.** Business mutations and `app.events` outbox records
+   commit together. The dispatcher locks scoped batches with SKIP LOCKED, rechecks
+   service identity, and commits consumer effects, delivery receipts, and publication
+   together. Retries provide at-least-once delivery with idempotent consumers.
+   Audit records every event. Risk coalesces superseded graph versions and emits
+   `risk.assessed`; it never changes task dates automatically.
+6. **Human-approved proposals.** Agents may only create validated pending proposals.
+   Before execution, verify human approval, current permissions, expiry, unchanged
+   payload hash, and exactly-once application using the approver's authority.
+   No agent, proposal, approval, or executor route is enabled in this implementation.
+7. **Worker-only slow work.** Dependency calculations and audit delivery run in the
+   worker. LLM calls, transcription, and embeddings must also be authorized worker
+   jobs when introduced. River and websocket infrastructure are not enabled; their
+   isolation designs and tests remain feature gates.
+8. **OpenAPI contract.** `api/openapi.yaml` defines health, authentication, membership,
+   projects, tasks, dependencies, and risk reads. oapi-codegen produces Go interfaces
+   and DTOs; openapi-typescript and openapi-fetch supply the strict TypeScript client.
+   `make gen` also generates sqlc bindings. Handlers reject unknown JSON fields,
+   missing required fields, invalid nulls, trailing input, and oversized bodies.
+9. **LLM provider boundary.** Future providers must implement the provider interface,
+   use deterministic mocks in tests, treat workspace content as untrusted data,
+   validate JSON outputs, and enforce quotas, token/step limits, and timeouts.
+   Dependency risk requires no model or external service.
 
-## Database identities and bootstrap
+## Approved identity control plane
 
-The PostgreSQL administrative `postgres` role only initializes the database and
-extension. `slipgraph_owner` owns the `app` and `migrations` schemas and runs goose;
-it is neither superuser nor BYPASSRLS. `slipgraph_app` is an independent runtime
-LOGIN role with no privileged memberships, database/schema/table ownership,
-CREATE, or BYPASSRLS. It has only explicit tenant-table privileges.
+Only these six tables are exempt from tenant RLS: `identity.users`, `credentials`,
+`sessions`, `memberships`, `invites`, and `password_resets`. Only `internal/auth`
+queries them. They contain identity and authorization metadata, never workspace
+business content, task data, or AI content. Runtime privileges are explicitly
+limited. Migration bookkeeping in `migrations` remains inaccessible infrastructure.
 
-Every runtime connection checks both session and current identity, privileged
-memberships (including built-in server-file roles), database/schema/table ownership, existence of the foundational
-schema, and ENABLE/FORCE RLS. Unsafe configurations refuse startup. New migrations
-must preserve these invariants. Tables outside `app` are not a place for tenant data.
-The `migrations.goose_db_version` table is global migration bookkeeping, not tenant
-state: it has no workspace or RLS and the runtime role cannot access its schema.
-This infrastructure-only exception does not apply to domain or queue data.
+Directory and human session queries filter the authenticated user's ID. Member
+administration reads the separate RLS-protected `app.members` projection; directory
+and projection changes commit atomically. Session resolution verifies membership,
+and every tenant transaction rechecks the live session and tenant member projection.
+Signup/new-workspace creation mints a server-side workspace ID. Switching uses a
+short-lived, single-use ticket minted from the user's own membership directory;
+invite acceptance verifies the hashed token and matching authenticated email.
+Requests never supply authoritative workspace IDs.
 
-Compose generates 256-bit random local credentials into separate named volumes.
-API and worker mount only app and Redis credentials; they cannot read owner or
-administrator credentials. Secret files are read through a rooted filesystem,
-preventing symlink escapes from the configured secret directory. Migration mounts owner credentials. PostgreSQL mounts
-the three DB credentials for initialization. Services do not publish DB or Redis
-ports. Persistent DB and credential volumes must be backed up/restored together.
-Use a secret manager and verified TLS in production. Local Compose is development
-only; production config requires Postgres `sslmode=verify-full` and `rediss`.
+Passwords use Argon2id (64 MiB, three iterations, parallelism two, random salt).
+Login has shared rate budgets, five-failure lockout, and bounded hashing concurrency.
+Sessions store only hashes of opaque 256-bit access/refresh tokens. Access expires
+in 15 minutes, refresh in seven days. Rotation revokes the previous access session;
+refresh-token reuse revokes the family. Cookies are HttpOnly, Secure, SameSite=Lax,
+Path=/, and host-only. Unsafe HTTP requests require exact Origin plus a session-bound
+CSRF token, including signup/login. All auth responses carrying credentials are
+no-store. Invites expire in 24 hours; internal reset tokens in 15 minutes, both
+hashed and single-use. Reset issuance/delivery is internal; no public forgot-password
+email or recovery flow is exposed. Invites are manually shared by an authorized admin.
 
-## HTTP and web
+The worker authenticates user-less consumer session records using the deployment
+key. It rechecks revocation, expiry, scope, and central policy in every batch.
+Rate-budget counters and switch tickets contain identity metadata only and use
+sessions rather than adding an unapproved global table.
 
-API `GET /healthz` returns 200 `{ "status": "ok" }` only if Postgres and Redis
-respond; failure is 503 without dependency details. The worker has the same probe
-on its private port 8081. These routes are public, policy-controlled infrastructure
-endpoints and never return tenant data. Unknown methods/routes expose no business
-operations. Request IDs are server-generated UUIDv7. HTTP timeouts, panic recovery,
-strict headers, and graceful SIGINT/SIGTERM shutdown are configured. Logs use JSON
-slog and an allow-list; URLs, body content, arbitrary error strings, and tokens are
-redacted. Future log fields must be reviewed before adding them to the allow-list.
+## Projects and risk semantics
 
-The React application uses strict TypeScript, React Router, TanStack Query,
-Tailwind, and the generated contract. Production assets are served by unprivileged
-NGINX with same-origin `/api/` proxying, Docker DNS refresh for API replacements, and a strict CSP without inline scripts,
-external fonts, or remote images. The Vite development proxy targets localhost:8080.
-React escapes text; rich-text rendering is not implemented and must add DOMPurify
-before enabling it. Cookie sessions, CSRF, websocket upgrades, and authenticated
-requests are not implemented yet.
+Project/task writes use explicit allow-lists and a required current version;
+stale writes return 409. Project graph versions independently track planning changes.
+Project-scoped advisory locks serialize graph mutation and cycle checks, including
+opposite concurrent edge additions. Deleted project/task objects are hidden from
+reads and graph loading; events and audit history remain. Cancelled tasks are excluded
+from risk; completed tasks have fixed actual finish times. Comments are a UI placeholder.
 
-## Verification and evolution
+Dependencies are finish-to-start. Dates use UTC minute precision, estimates are
+minutes, and delays are absolute totals in 24-hour calendar days. No work-calendar,
+resource leveling, probabilistic model, or LLM is implied. The loader uses a scoped
+recursive CTE for downstream closure and loads the project graph for critical path.
+The pure engine validates and topologically sorts iteratively, then runs forward
+and backward passes for earliest dates, float, forecast critical path, affected tasks,
+slack consumed, milestone/launch slip, and risk levels. Stable ID ordering makes
+results deterministic. A due-date edit sets a forecast finish floor; estimates and
+start constraints define the baseline. A delay report replaces the previous total.
+Assessments include algorithm and graph versions. Stale results are labeled while
+the worker recomputes; task records are not silently rescheduled.
 
-`make test` runs Go/React tests and Docker-backed testcontainers tests. The latter
-boot the real bootstrap script, run goose up/down/up as owner, reject privileged
-roles and missing RLS, seed two workspaces, and check visibility, denied writes,
-cross-tenant references, and transaction-setting cleanup. There are no search,
-websocket, or job types yet; each new type must extend this suite in the same PR.
-CI also checks generated drift, vulnerability scans, lint, and Compose startup.
-See THREAT_MODEL.md for exact security requirements and implementation status.
+The UI offers Kanban, table, dependency-arrow timeline, and a task drawer. For usable
+rendering, columns show up to 100 tasks, table 300, and timeline 200, with explicit
+limits shown. The engine benchmark covers 10,000 tasks and fails above 200 ms.
+
+## Audit, secrets, and deployment
+
+The runtime has INSERT-only audit grants. A trigger blocks UPDATE/DELETE/TRUNCATE,
+including owner attempts. A scoped security-definer append function serializes each
+workspace chain and assigns sequence, previous hash, and a SHA-256 digest of canonical
+JSON including actor kind and timestamp. A narrow verification function returns only
+validity/count/head; the Go command and API require admin policy. Hash chains detect
+tampering relative to trusted heads; a database administrator remains a trust boundary.
+Snapshots use explicit metadata fields and omit free-text content and credentials.
+
+Compose generates random database, Redis, and auth keys in named credential volumes.
+API/worker cannot read owner or administrator credentials. A dedicated bootstrap
+service installs approved schemas/extensions for both fresh and existing volumes;
+owner-only migrations precede runtime startup. Never discard credentials independently
+of persistent database volumes. Production requires managed secrets, TLS, verified
+Postgres TLS, Redis TLS, and a correctly configured public browser origin.
+
+NGINX serves same-origin assets/API with strict CSP and Docker DNS refresh. React
+escapes text; rich text must add DOMPurify before activation. Only the configured
+trusted proxy may supply X-Real-IP; NGINX overwrites it. JSON slog uses an allow-list
+and redacts arbitrary errors, bodies, URLs, and secrets. Request IDs are generated
+server-side; timeouts, recovery, and graceful shutdown bound service work.
+
+## Verification
+
+`make build`, `make test`, and `make lint` cover Go/React checks. Docker-backed suites
+run separately for database invariants and real identity/project HTTP flows. They
+prove two-workspace endpoint/job isolation, directory privacy, CSRF, lockout,
+fixation/rotation, invite expiry/reuse, self-role denial, append-only audit, and role
+startup rejection. Pure graph tests cover diamonds, cycles, completed nodes,
+determinism, and the 10k performance budget. CI also checks generated drift,
+vulnerability scans, image builds, Compose readiness, and API address replacement.

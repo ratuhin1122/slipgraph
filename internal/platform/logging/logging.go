@@ -18,7 +18,7 @@ func Scrub(_ []string, a slog.Attr) slog.Attr {
 		return a
 	case slog.MessageKey:
 		switch a.Value.String() {
-		case "request", "starting", "stopped", "startup failed", "server failed", "shutdown failed", "panic recovered":
+		case "request", "starting", "stopped", "startup failed", "server failed", "shutdown failed", "panic recovered", "consumer failed":
 			return a
 		}
 	}

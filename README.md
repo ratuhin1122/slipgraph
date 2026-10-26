@@ -1,6 +1,6 @@
 # Slipgraph
 
-Multi-tenant AI team workspace foundation. Go modular monolith, Postgres 16 with
+Multi-tenant team workspace with identity, projects, tasks, and dependency risk. Go modular monolith, Postgres 16 with
 pgvector, Redis, React/TypeScript. Agents will propose changes for human approval.
 
 ## Start
@@ -40,7 +40,7 @@ make migrate   # one-shot owner-role goose migrations
 
 `npm --prefix web run dev` serves the Vite development UI and proxies `/api` to the
 running API. The Compose web service serves production assets with NGINX. To run
-Go directly, supply DATABASE_URL and REDIS_URL through the environment (see
+Go directly, supply DATABASE_URL, REDIS_URL, AUTH_KEY_FILE, and PUBLIC_ORIGIN (see
 .env.example), using the runtime role. The migration command uses owner credentials
 and expects the bootstrap schemas/roles to exist. Do not use owner credentials for
 the API or worker: startup deliberately rejects them.
@@ -50,6 +50,28 @@ gosec, govulncheck, frontend checks/tests/build/audit, generated-code drift, Doc
 builds and full Compose readiness smoke tests. Integration tests fail if Docker is
 unavailable; they do not silently skip security coverage.
 
-The worker currently exposes readiness and does not process jobs. All domain
-packages are reserved boundaries. See [architecture](docs/ARCHITECTURE.md) and the
+After startup, create an account at `/signup`. Signup creates your first workspace
+with an admin membership. Create projects and tasks, add blockers in the task drawer,
+and use Kanban, table, or timeline views. Delay reports use total calendar days;
+the worker stores versioned risk, earliest dates, slack, critical path, and launch
+slip. Assessments show pending/stale status until the worker catches up. Task dates
+are never automatically rewritten. All planning times are UTC; an estimate is a
+24-hour-calendar duration, not a working-day capacity model.
+
+Admins invite members/viewers from Members and privately share the generated link.
+Sign in with the invited email before accepting. Workspace selection uses verified
+membership tickets. Members can edit projects/tasks; viewers read; nobody can edit
+their own role. Secure cookies work on trusted localhost development origins;
+production requires HTTPS. Set PUBLIC_ORIGIN when changing the browser origin.
+Password-reset primitives exist internally, but no email/recovery UI is enabled.
+
+The worker processes transactional events for audit and risk with idempotent
+receipts. Administrators can verify the current workspace audit chain through
+`GET /api/audit/verify` or run `/app/slipgraph audit verify` in the API container
+with `SLIPGRAPH_SESSION` containing their own access cookie (supply securely through
+the environment; never paste it into Git, logs, or command history).
+
+`make test` includes the 10k graph benchmark with a 200 ms budget. Database and
+identity/project integration suites run as separate Docker-backed invocations.
+Comments, AI agents, and automatic proposal execution are not enabled. See [architecture](docs/ARCHITECTURE.md) and the
 [security checklist](docs/THREAT_MODEL.md) for the nine foundations and feature gates.

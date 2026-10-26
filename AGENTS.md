@@ -7,9 +7,13 @@ They preserve the Master Context foundations and security rules. Keep both updat
 - Resolve workspace identity only from authenticated sessions. Never trust body, URL,
   query, or arbitrary headers for tenant identity. Jobs re-verify identity and policy.
 - Use central policy.Can for every route, websocket message, job, and agent executor.
-  Unknown actions fail closed. The only public action currently is health:read.
+  Unknown actions fail closed. Public actions are health:read and the tightly limited auth:public entry points.
 - Tenant tables require workspace_id, ENABLE/FORCE RLS, explicit runtime grants,
   and composite tenant-aware keys. Runtime is slipgraph_app, never an owner or superuser.
+- Only identity.users, credentials, sessions, memberships (own-user directory), invites,
+  and password_resets are exempt from tenant RLS, under the approved identity schema.
+  Only internal/auth may query them. Never store tenant business or AI content there.
+  app.members is the RLS-protected tenant projection used for member administration.
 - Scope tenant context to a transaction with database.WithTenant. Never session-level SET.
 - Extend generic objects and links. Domain mutations and outbox events commit together.
 - Agents produce validated pending proposals only. Human approval and executor checks

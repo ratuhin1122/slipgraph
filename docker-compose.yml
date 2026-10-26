@@ -20,6 +20,9 @@ x-environment: &runtime-env
   REDIS_HOST: redis
   REDIS_PASSWORD_FILE: /run/redis/redis_password
   LOG_LEVEL: ${LOG_LEVEL:-info}
+  AUTH_KEY_FILE: /run/app/auth_key
+  TRUSTED_PROXY_HOST: web
+  PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:5173}
 services:
   credentials:
     image: alpine:3.23
@@ -73,6 +76,15 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+  bootstrap:
+    image: pgvector/pgvector:pg16
+    entrypoint: [/bin/sh, /bootstrap-schemas.sh]
+    volumes:
+      - postgres_credentials:/run/postgres:ro
+      - ./deploy/bootstrap-schemas.sh:/bootstrap-schemas.sh:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: 'no'
   migrate:
     <<: *runtime
     command: [/app/migrate]
@@ -85,7 +97,7 @@ services:
       DB_USER: slipgraph_owner
       DB_PASSWORD_FILE: /run/owner/owner_password
     depends_on:
-      postgres: {condition: service_healthy}
+      bootstrap: {condition: service_completed_successfully}
   api:
     <<: *runtime
     command: [/app/api]

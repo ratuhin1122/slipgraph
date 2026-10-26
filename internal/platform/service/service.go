@@ -11,14 +11,18 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/slipgraph/slipgraph/internal/audit"
+	"github.com/slipgraph/slipgraph/internal/auth"
+	"github.com/slipgraph/slipgraph/internal/events"
 	"github.com/slipgraph/slipgraph/internal/platform/config"
 	"github.com/slipgraph/slipgraph/internal/platform/database"
 	"github.com/slipgraph/slipgraph/internal/platform/httpserver"
 	"github.com/slipgraph/slipgraph/internal/platform/logging"
+	"github.com/slipgraph/slipgraph/internal/risk"
 )
 
 // Run starts the process and drains HTTP requests before closing dependency pools.
-// The worker has readiness only until authorized River job types are implemented.
+// The worker dispatches authorized transactional audit and risk consumers.
 func Run(name, defaultAddr string) int {
 	logger := logging.New(os.Stdout, "info")
 	cfg, err := config.Load(defaultAddr)
@@ -54,7 +58,34 @@ func Run(name, defaultAddr string) int {
 		logger.Error("startup failed", "error", err)
 		return 1
 	}
-	server := &http.Server{Addr: cfg.HTTPAddr, Handler: httpserver.New(logger, pool.Ping, func(ctx context.Context) error { return cache.Ping(ctx).Err() }), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError)}
+	key, err := config.LoadAuthKey()
+	if err != nil {
+		logger.Error("startup failed", "error", err)
+		return 1
+	}
+	identity, err := auth.New(pool, key)
+	if err != nil {
+		logger.Error("startup failed", "error", err)
+		return 1
+	}
+	probes := []httpserver.Probe{pool.Ping, func(ctx context.Context) error { return cache.Ping(ctx).Err() }}
+	var handler http.Handler
+	if name == "api" {
+		endpoints, err := auth.NewHTTP(identity, config.PublicOrigin(), cfg.Environment == "production")
+		if err != nil {
+			logger.Error("startup failed", "error", err)
+			return 1
+		}
+		endpoints.TrustedProxyHost = os.Getenv("TRUSTED_PROXY_HOST")
+		handler = httpserver.NewAPI(logger, endpoints, probes...)
+	} else {
+		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}}}
+		done := make(chan struct{})
+		go func() { defer close(done); dispatcher.Run(ctx) }()
+		defer func() { stop(); <-done }()
+		handler = httpserver.New(logger, probes...)
+	}
+	server := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError)}
 	result := make(chan error, 1)
 	go func() { result <- server.ListenAndServe() }()
 	logger.Info("starting")
