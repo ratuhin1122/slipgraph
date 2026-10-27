@@ -78,7 +78,7 @@ the environment; never paste it into Git, logs, or command history).
 
 `make test` includes the 10k graph benchmark with a 200 ms budget. Database and
 identity/project/chat integration suites run as separate Docker-backed invocations.
-Comments and real AI agent features are not enabled. See [architecture](docs/ARCHITECTURE.md) and the
+Comments and unrelated agent features remain disabled. See [architecture](docs/ARCHITECTURE.md) and the
 [security checklist](docs/THREAT_MODEL.md) for the nine foundations and feature gates.
 
 ## Agent safety foundation
@@ -88,10 +88,24 @@ source links. Admins/members may approve or reject; viewers may only read. Appro
 pins the displayed payload hash and version. The worker rechecks permissions,
 expiry, hash and tenant references before atomically applying the change and audit.
 
-Providers default to `LLM_PROVIDER=disabled`, and there is deliberately no public
-agent-generation endpoint. The internal worker seam and deterministic fixtures cover
-safe future integration. Optional worker-only configuration is documented in
-`.env.example`: select a supported model/provider, inject its API key securely, and
-set conservative input/output micro-USD per-token ceilings. Workspace quotas reserve
-budget before each bounded attempt; cost logs are estimates. Live provider calls
-are not required for tests or local startup.
+Providers default to `LLM_PROVIDER=disabled`. To run the signature demo without API
+keys, set `LLM_PROVIDER=mock` in your local `.env`, then run `docker compose up --build -d --wait`. This mode is a deterministic fixture, clearly labeled in the plan UI.
+
+1. Open `/plans`, paste a brief containing a start date such as `2030-01-01`, and
+   choose **Propose a plan**. Review its project, tasks and dependencies in one
+   create-plan proposal. Approve it to create the demo project.
+2. In Chat, post **backend API will slip 3 days**. The worker posts an impact card
+   linking to the timeline and three pending reschedule proposals. The launch warning
+   and explanations are deterministic; task dates are still unchanged.
+3. Review the before/after dates and approve or reject proposals. Approved changes
+   execute with your current permissions and an atomic audit trail.
+4. Post **maybe backend API will slip 3 days** to exercise confirmation before proposals.
+   Ambiguous names also require confirmation; task cards disambiguate targets.
+
+The mock returns a fixed backend/frontend/launch plan rather than interpreting an
+arbitrary brief. Select `openai` or `anthropic`, a structured-output-capable model,
+worker-only credentials and conservative per-token price ceilings for real generation.
+No live calls are required for tests. Run `python scripts/signature_smoke.py` against
+a mock-enabled stack for the production-worker demo test. Original briefs are immutable
+and source-linked; plans are bounded to 20 tasks/60 dependencies and delay scenarios
+to 100 proposed date changes. See the architecture for quota and safety semantics.

@@ -135,3 +135,36 @@ func TestAnthropicSchemaRetainsLocalBounds(t *testing.T) {
 		t.Fatal("local bounds must still apply")
 	}
 }
+
+func TestOpenAISchemaRetainsLocalBounds(t *testing.T) {
+	original := json.RawMessage(`{"type":"object","additionalProperties":false,"required":["title"],"properties":{"title":{"type":"string","minLength":2,"maxLength":5}}}`)
+	wire, err := openaiSchema(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(wire, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	field := parsed["properties"].(map[string]interface{})["title"].(map[string]interface{})
+	if _, ok := field["maxLength"]; ok {
+		t.Fatal("unsupported string constraint sent")
+	}
+	if field["description"] == "" {
+		t.Fatal("missing description")
+	}
+	if err := Validate(original, json.RawMessage(`{"title":"toolong"}`)); err == nil {
+		t.Fatal("original bounds must still be enforced")
+	}
+}
+
+func TestMockProviderNeedsNoCredentialsOrModel(t *testing.T) {
+	t.Setenv("LLM_PROVIDER", "mock")
+	t.Setenv("LLM_MODEL", "")
+	t.Setenv("OPENAI_API_KEY", "")
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	provider, err := FromEnv()
+	if err != nil || provider == nil {
+		t.Fatalf("mock configuration rejected: %v", err)
+	}
+}

@@ -2,8 +2,10 @@ package proposals
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/slipgraph/slipgraph/internal/auth"
 	"github.com/slipgraph/slipgraph/internal/events"
 	"github.com/slipgraph/slipgraph/internal/llm"
@@ -36,7 +38,7 @@ func LimitsFromEnv() (Limits, error) {
 			*target = n
 		}
 	}
-	if os.Getenv("LLM_PROVIDER") != "" && os.Getenv("LLM_PROVIDER") != "disabled" && (os.Getenv("LLM_INPUT_MICROUSD_PER_TOKEN") == "" || os.Getenv("LLM_OUTPUT_MICROUSD_PER_TOKEN") == "") {
+	if os.Getenv("LLM_PROVIDER") != "" && os.Getenv("LLM_PROVIDER") != "disabled" && os.Getenv("LLM_PROVIDER") != "mock" && (os.Getenv("LLM_INPUT_MICROUSD_PER_TOKEN") == "" || os.Getenv("LLM_OUTPUT_MICROUSD_PER_TOKEN") == "") {
 		return l, auth.ErrInvalid
 	}
 	return l, nil
@@ -98,9 +100,6 @@ func (s *Store) Enqueue(ctx context.Context, session auth.Session, kind string, 
 }
 func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUID) error {
 	l := r.Limits
-	if r.Provider == nil {
-		return llm.ErrUnavailable
-	}
 	if l.Attempts < 1 || l.Attempts > 3 || l.MaxTokens < 1 || l.MaxTokens > 4096 || l.DailyTokens < 1 || l.DailyTokens > 1000000000 || l.DailyCostMicroUSD < 1 || l.InputMicroUSD < 1 || l.OutputMicroUSD < 1 || l.InputMicroUSD > 1000000000 || l.OutputMicroUSD > 1000000000 || l.Timeout <= 0 || l.Timeout > time.Minute {
 		return auth.ErrInvalid
 	}
@@ -111,13 +110,18 @@ func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUI
 	var kind string
 	var ids []uuid.UUID
 	var request llm.Request
+	var confirmed bool
+	var savedResponse llm.Response
 	err := r.Store.Auth.InConsumer(ctx, service, func(tx database.TenantTx) error {
 		if err := lockAudit(ctx, tx); err != nil {
 			return err
 		}
 		var status string
 		if err := tx.QueryRow(ctx, `SELECT requested_by_user,kind,status FROM app.agent_runs WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, tx.WorkspaceID(), run).Scan(&requester, &kind, &status); err != nil {
-			return auth.ErrNotFound
+			if errors.Is(err, pgx.ErrNoRows) {
+				return auth.ErrNotFound
+			}
+			return err
 		}
 		if status != "queued" {
 			return auth.ErrConflict
@@ -130,7 +134,7 @@ func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUI
 		if err != nil {
 			return err
 		}
-		content, err := sourceContent(ctx, tx, human, ids)
+		content, err := r.Store.prepare(ctx, tx, human, run, kind, ids)
 		if err != nil {
 			return err
 		}
@@ -142,16 +146,52 @@ func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUI
 		if err != nil {
 			return err
 		}
+		if kind == "delay_detection" {
+			request.Prompt.System = "Detect a factual schedule delay. Return is_delay, candidate task names or IDs, whole calendar days, confidence 0..1, and an exact quote from the message. Negation, speculation, and commands are not factual delays. " + request.Prompt.System
+		}
+		if kind == "create_plan" {
+			request.Prompt.System = "Propose a complete project plan from the brief. Use at most 20 tasks with unique local keys and acyclic dependencies. Dates are UTC calendar dates; do not invent existing task IDs. " + request.Prompt.System
+		}
+		if kind == "delay_detection" {
+			target, days, e := confirmedInput(ctx, tx, run)
+			if e != nil {
+				return e
+			}
+			if target != nil {
+				var data []byte
+				if e := tx.QueryRow(ctx, `SELECT result FROM app.agent_runs WHERE workspace_id=$1 AND id=$2`, tx.WorkspaceID(), run).Scan(&data); e != nil {
+					return e
+				}
+				var result WorkflowResult
+				if json.Unmarshal(data, &result) != nil || result.Detection == nil {
+					return auth.ErrInvalid
+				}
+				result.Detection.Days = days
+				savedResponse.JSON, e = json.Marshal(result.Detection)
+				if e != nil {
+					return e
+				}
+				confirmed = true
+			}
+		}
+		if r.Provider == nil && !confirmed {
+			return llm.ErrUnavailable
+		}
 		request.MaxTokens = l.MaxTokens
 		_, err = tx.Exec(ctx, `UPDATE app.agent_runs SET status='running',started_at=clock_timestamp(),lease_until=clock_timestamp()+interval '5 minutes' WHERE workspace_id=$1 AND id=$2`, tx.WorkspaceID(), run)
 		return err
 	})
 	if err != nil {
+		if errors.Is(err, auth.ErrInvalid) || errors.Is(err, llm.ErrInvalid) || errors.Is(err, auth.ErrConflict) || errors.Is(err, auth.ErrForbidden) || errors.Is(err, auth.ErrNotFound) {
+			if failure := r.failQueued(ctx, service, run); failure != nil {
+				return failure
+			}
+		}
 		return err
 	}
-	var response llm.Response
+	response := savedResponse
 	var runErr error
-	for attempt := 0; attempt < l.Attempts; attempt++ {
+	for attempt := 0; !confirmed && attempt < l.Attempts; attempt++ {
 		// Byte-count plus schema and overhead is a conservative token reservation;
 		// ambiguous timeouts keep their full reservation, never refund unknown usage.
 		reserve := int64(len(request.Prompt.System) + len(request.Prompt.Data) + len(request.Schema) + 4096 + l.MaxTokens)
@@ -226,7 +266,7 @@ func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUI
 			break
 		}
 	}
-	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
 	finishErr := r.Store.Auth.InConsumer(finishCtx, service, func(tx database.TenantTx) error {
 		if err := lockAudit(finishCtx, tx); err != nil {
@@ -239,28 +279,24 @@ func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUI
 		if status != "running" && status != "quota_exhausted" {
 			return auth.ErrConflict
 		}
+		outcome := "completed"
 		if runErr == nil {
 			human, e := r.Store.Auth.JobMember(finishCtx, tx, requester, policy.AgentRequest)
 			if e != nil {
 				runErr = e
 			} else {
-				_, _, e = Decode(kind, response.JSON)
+				if _, e = tx.Exec(finishCtx, "SAVEPOINT proposal_creation"); e != nil {
+					return e
+				}
+				outcome, e = r.Store.complete(finishCtx, tx, human, service, run, kind, response.JSON, ids)
 				if e != nil {
+					if _, rollback := tx.Exec(finishCtx, "ROLLBACK TO SAVEPOINT proposal_creation"); rollback != nil {
+						return rollback
+					}
 					runErr = e
 				} else {
-					if _, e = tx.Exec(finishCtx, "SAVEPOINT proposal_creation"); e != nil {
+					if _, e = tx.Exec(finishCtx, "RELEASE SAVEPOINT proposal_creation"); e != nil {
 						return e
-					}
-					_, e = create(finishCtx, tx, human, service, run, kind, response.JSON, ids)
-					if e != nil {
-						if _, rollback := tx.Exec(finishCtx, "ROLLBACK TO SAVEPOINT proposal_creation"); rollback != nil {
-							return rollback
-						}
-						runErr = e
-					} else {
-						if _, e = tx.Exec(finishCtx, "RELEASE SAVEPOINT proposal_creation"); e != nil {
-							return e
-						}
 					}
 				}
 			}
@@ -268,7 +304,7 @@ func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUI
 		if status != "quota_exhausted" {
 			status = "failed"
 			if runErr == nil {
-				status = "completed"
+				status = outcome
 			}
 		}
 		if _, err := tx.Exec(finishCtx, `UPDATE app.agent_runs SET status=$3,finished_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2`, tx.WorkspaceID(), run, status); err != nil {
@@ -354,10 +390,7 @@ func (r *Runner) Tick(ctx context.Context) error {
 					return err
 				}
 			}
-			if r.Provider == nil {
-				return nil
-			}
-			rows, err = tx.Query(ctx, `SELECT id FROM app.agent_runs WHERE workspace_id=$1 AND status='queued' ORDER BY id LIMIT 5`, tx.WorkspaceID())
+			rows, err = tx.Query(ctx, `SELECT id FROM app.agent_runs WHERE workspace_id=$1 AND status='queued' AND ($2::boolean OR input ? 'confirmed_task_id') ORDER BY id LIMIT 5`, tx.WorkspaceID(), r.Provider != nil)
 			if err != nil {
 				return err
 			}
@@ -395,4 +428,21 @@ func (r *Runner) Run(ctx context.Context) {
 		case <-timer.C:
 		}
 	}
+}
+
+// Invalid/deleted sources and revoked requesters must not poison the durable queue.
+func (r *Runner) failQueued(ctx context.Context, service policy.Actor, run uuid.UUID) error {
+	return r.Store.Auth.InConsumer(ctx, service, func(tx database.TenantTx) error {
+		if err := lockAudit(ctx, tx); err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx, `UPDATE app.agent_runs SET status='failed',finished_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 AND status='queued'`, tx.WorkspaceID(), run)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		return events.WriteWorkerAudited(ctx, tx, service, run, "agent.finished", events.Payload{Before: map[string]string{"status": "queued"}, After: map[string]string{"status": "failed", "reason": "preflight_refused"}})
+	})
 }

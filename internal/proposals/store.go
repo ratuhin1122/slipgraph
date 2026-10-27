@@ -139,6 +139,13 @@ func sourceContent(ctx context.Context, tx database.TenantTx, a policy.Actor, id
 		}
 		var text string
 		switch kind {
+		case "brief":
+			if !policy.Can(ctx, a, policy.ProposalRead, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+				return nil, auth.ErrForbidden
+			}
+			if err := tx.QueryRow(ctx, `SELECT body FROM app.briefs WHERE workspace_id=$1 AND id=$2`, tx.WorkspaceID(), id).Scan(&text); err != nil {
+				return nil, err
+			}
 		case "message":
 			if !policy.Can(ctx, a, policy.ChannelRead, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
 				return nil, auth.ErrForbidden
@@ -468,6 +475,8 @@ func sourceLinks(ctx context.Context, tx database.TenantTx, ids []uuid.UUID) ([]
 				}
 				link.Href = "/chat/" + parent.String() + "?thread=" + thread.String()
 			}
+		case "brief":
+			link.Href = "/plans?brief=" + id.String()
 		case "project":
 			link.Href = "/projects/" + id.String()
 		}

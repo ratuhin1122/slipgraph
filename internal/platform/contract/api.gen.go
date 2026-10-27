@@ -19,6 +19,17 @@ const (
 	SessionCookieScopes = "sessionCookie.Scopes"
 )
 
+// Defines values for AgentRunStatus.
+const (
+	AgentRunStatusCompleted         AgentRunStatus = "completed"
+	AgentRunStatusFailed            AgentRunStatus = "failed"
+	AgentRunStatusIgnored           AgentRunStatus = "ignored"
+	AgentRunStatusNeedsConfirmation AgentRunStatus = "needs_confirmation"
+	AgentRunStatusQueued            AgentRunStatus = "queued"
+	AgentRunStatusQuotaExhausted    AgentRunStatus = "quota_exhausted"
+	AgentRunStatusRunning           AgentRunStatus = "running"
+)
+
 // Defines values for HealthStatus.
 const (
 	Ok          HealthStatus = "ok"
@@ -35,6 +46,7 @@ const (
 const (
 	AddDependency  ProposalKind = "add_dependency"
 	ChangeAssignee ProposalKind = "change_assignee"
+	CreatePlan     ProposalKind = "create_plan"
 	CreateTask     ProposalKind = "create_task"
 	RescheduleTask ProposalKind = "reschedule_task"
 )
@@ -51,8 +63,8 @@ const (
 
 // Defines values for RiskEnvelopeStatus.
 const (
-	RiskEnvelopeStatusPending RiskEnvelopeStatus = "pending"
-	RiskEnvelopeStatusReady   RiskEnvelopeStatus = "ready"
+	Pending RiskEnvelopeStatus = "pending"
+	Ready   RiskEnvelopeStatus = "ready"
 )
 
 // Defines values for Role.
@@ -79,6 +91,27 @@ const (
 	Todo       TaskStatus = "todo"
 )
 
+// AgentRun defines model for AgentRun.
+type AgentRun struct {
+	Id          openapi_types.UUID `json:"id"`
+	Kind        string             `json:"kind"`
+	RequestedBy openapi_types.UUID `json:"requested_by"`
+	Result      WorkflowResult     `json:"result"`
+	Status      AgentRunStatus     `json:"status"`
+}
+
+// AgentRunStatus defines model for AgentRun.Status.
+type AgentRunStatus string
+
+// AgentRuns defines model for AgentRuns.
+type AgentRuns = []AgentRun
+
+// AgentSettings defines model for AgentSettings.
+type AgentSettings struct {
+	Enabled bool   `json:"enabled"`
+	Mode    string `json:"mode"`
+}
+
 // ApproveProposalInput defines model for ApproveProposalInput.
 type ApproveProposalInput struct {
 	PayloadHash string `json:"payload_hash"`
@@ -97,6 +130,12 @@ type Board struct {
 	Dependencies []Dependency `json:"dependencies"`
 	Project      Project      `json:"project"`
 	Tasks        []Task       `json:"tasks"`
+}
+
+// Brief defines model for Brief.
+type Brief struct {
+	Body string             `json:"body"`
+	Id   openapi_types.UUID `json:"id"`
 }
 
 // CSRF defines model for CSRF.
@@ -119,20 +158,21 @@ type ChatMention struct {
 
 // ChatMessage defines model for ChatMessage.
 type ChatMessage struct {
-	AuthorId   openapi_types.UUID  `json:"author_id"`
-	AuthorName string              `json:"author_name"`
-	Body       string              `json:"body"`
-	ChannelId  openapi_types.UUID  `json:"channel_id"`
-	ClientId   openapi_types.UUID  `json:"client_id"`
-	CreatedAt  time.Time           `json:"created_at"`
-	Deleted    bool                `json:"deleted"`
-	Id         openapi_types.UUID  `json:"id"`
-	Mentions   []ChatMention       `json:"mentions"`
-	ReplyCount int                 `json:"reply_count"`
-	TaskLinks  []ChatTaskLink      `json:"task_links"`
-	ThreadId   *openapi_types.UUID `json:"thread_id"`
-	UpdatedAt  time.Time           `json:"updated_at"`
-	Version    int64               `json:"version"`
+	AuthorId    openapi_types.UUID  `json:"author_id"`
+	AuthorName  string              `json:"author_name"`
+	Body        string              `json:"body"`
+	ChannelId   openapi_types.UUID  `json:"channel_id"`
+	ClientId    openapi_types.UUID  `json:"client_id"`
+	CreatedAt   time.Time           `json:"created_at"`
+	Deleted     bool                `json:"deleted"`
+	Id          openapi_types.UUID  `json:"id"`
+	Mentions    []ChatMention       `json:"mentions"`
+	ReplyCount  int                 `json:"reply_count"`
+	SystemRunId *openapi_types.UUID `json:"system_run_id"`
+	TaskLinks   []ChatTaskLink      `json:"task_links"`
+	ThreadId    *openapi_types.UUID `json:"thread_id"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+	Version     int64               `json:"version"`
 }
 
 // ChatPresenceMember defines model for ChatPresenceMember.
@@ -150,9 +190,36 @@ type ChatTaskLink struct {
 	Title     string             `json:"title"`
 }
 
+// ConfirmDelayInput defines model for ConfirmDelayInput.
+type ConfirmDelayInput struct {
+	Days   int                `json:"days"`
+	TaskId openapi_types.UUID `json:"task_id"`
+}
+
 // CreateChannelInput defines model for CreateChannelInput.
 type CreateChannelInput struct {
 	Name string `json:"name"`
+}
+
+// DateChange defines model for DateChange.
+type DateChange struct {
+	AfterDue    time.Time          `json:"after_due"`
+	AfterStart  time.Time          `json:"after_start"`
+	BeforeDue   time.Time          `json:"before_due"`
+	BeforeStart time.Time          `json:"before_start"`
+	Milestone   bool               `json:"milestone"`
+	Reason      string             `json:"reason"`
+	TaskId      openapi_types.UUID `json:"task_id"`
+	Title       string             `json:"title"`
+}
+
+// DelayDetection defines model for DelayDetection.
+type DelayDetection struct {
+	Confidence     float32  `json:"confidence"`
+	Days           int64    `json:"days"`
+	EvidenceQuote  string   `json:"evidence_quote"`
+	IsDelay        bool     `json:"is_delay"`
+	TaskCandidates []string `json:"task_candidates"`
 }
 
 // DelayInput defines model for DelayInput.
@@ -234,6 +301,11 @@ type NameInput struct {
 	Name string `json:"name"`
 }
 
+// PlanBriefInput defines model for PlanBriefInput.
+type PlanBriefInput struct {
+	Brief string `json:"brief"`
+}
+
 // PostMessageInput defines model for PostMessageInput.
 type PostMessageInput struct {
 	// Body Plain text, maximum 8000 UTF-8 bytes. slipgraph://task/<uuid> references are verified and stored as links.
@@ -312,6 +384,11 @@ type ProposalSource struct {
 	Href  string             `json:"href"`
 	Id    openapi_types.UUID `json:"id"`
 	Label string             `json:"label"`
+}
+
+// QueuedRun defines model for QueuedRun.
+type QueuedRun struct {
+	Id openapi_types.UUID `json:"id"`
 }
 
 // RejectProposalInput defines model for RejectProposalInput.
@@ -401,6 +478,12 @@ type Task struct {
 	Version           int64      `json:"version"`
 }
 
+// TaskCandidate defines model for TaskCandidate.
+type TaskCandidate struct {
+	Id    openapi_types.UUID `json:"id"`
+	Title string             `json:"title"`
+}
+
 // TaskImpact defines model for TaskImpact.
 type TaskImpact struct {
 	Affected              bool           `json:"affected"`
@@ -475,6 +558,18 @@ type VersionInput struct {
 	Version int64 `json:"version"`
 }
 
+// WorkflowResult defines model for WorkflowResult.
+type WorkflowResult struct {
+	Assessment    *RiskAssessment      `json:"assessment,omitempty"`
+	Candidates    []TaskCandidate      `json:"candidates"`
+	Changes       []DateChange         `json:"changes"`
+	Detection     *DelayDetection      `json:"detection,omitempty"`
+	GraphVersion  int64                `json:"graph_version"`
+	LaunchFlagged bool                 `json:"launch_flagged"`
+	ProjectId     *openapi_types.UUID  `json:"project_id,omitempty"`
+	ProposalIds   []openapi_types.UUID `json:"proposal_ids"`
+}
+
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Id   *string `json:"id,omitempty"`
@@ -496,6 +591,9 @@ type ListMessagesParams struct {
 type ListProposalsParams struct {
 	Before *openapi_types.UUID `form:"before,omitempty" json:"before,omitempty"`
 }
+
+// ConfirmDelayJSONRequestBody defines body for ConfirmDelay for application/json ContentType.
+type ConfirmDelayJSONRequestBody = ConfirmDelayInput
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginInput
@@ -529,6 +627,9 @@ type DeleteMessageJSONRequestBody = VersionInput
 
 // EditMessageJSONRequestBody defines body for EditMessage for application/json ContentType.
 type EditMessageJSONRequestBody = EditMessageInput
+
+// RequestPlanJSONRequestBody defines body for RequestPlan for application/json ContentType.
+type RequestPlanJSONRequestBody = PlanBriefInput
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = ProjectInput
@@ -566,6 +667,15 @@ type RemoveDependencyJSONRequestBody = VersionInput
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /agent-runs/{runId})
+	GetAgentRun(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+
+	// (POST /agent-runs/{runId}/confirm)
+	ConfirmDelay(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID)
+
+	// (GET /agents/settings)
+	GetAgentSettings(w http.ResponseWriter, r *http.Request)
+
 	// (GET /audit/verify)
 	VerifyAudit(w http.ResponseWriter, r *http.Request)
 
@@ -598,6 +708,9 @@ type ServerInterface interface {
 
 	// (POST /auth/workspaces)
 	CreateWorkspace(w http.ResponseWriter, r *http.Request)
+
+	// (GET /briefs/{briefId})
+	GetBrief(w http.ResponseWriter, r *http.Request, briefId openapi_types.UUID)
 
 	// (GET /channels)
 	ListChannels(w http.ResponseWriter, r *http.Request)
@@ -638,6 +751,9 @@ type ServerInterface interface {
 	// (PUT /messages/{messageId})
 	EditMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID)
 
+	// (POST /plans)
+	RequestPlan(w http.ResponseWriter, r *http.Request)
+
 	// (GET /projects)
 	ListProjects(w http.ResponseWriter, r *http.Request)
 
@@ -652,6 +768,9 @@ type ServerInterface interface {
 
 	// (PUT /projects/{projectId})
 	UpdateProject(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (GET /projects/{projectId}/impacts)
+	ListProjectImpacts(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID)
 
 	// (GET /projects/{projectId}/risk)
 	GetRisk(w http.ResponseWriter, r *http.Request, projectId string)
@@ -696,6 +815,21 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// (GET /agent-runs/{runId})
+func (_ Unimplemented) GetAgentRun(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /agent-runs/{runId}/confirm)
+func (_ Unimplemented) ConfirmDelay(w http.ResponseWriter, r *http.Request, runId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /agents/settings)
+func (_ Unimplemented) GetAgentSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // (GET /audit/verify)
 func (_ Unimplemented) VerifyAudit(w http.ResponseWriter, r *http.Request) {
@@ -749,6 +883,11 @@ func (_ Unimplemented) ListWorkspaces(w http.ResponseWriter, r *http.Request) {
 
 // (POST /auth/workspaces)
 func (_ Unimplemented) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /briefs/{briefId})
+func (_ Unimplemented) GetBrief(w http.ResponseWriter, r *http.Request, briefId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -817,6 +956,11 @@ func (_ Unimplemented) EditMessage(w http.ResponseWriter, r *http.Request, messa
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /plans)
+func (_ Unimplemented) RequestPlan(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /projects)
 func (_ Unimplemented) ListProjects(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -839,6 +983,11 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, projec
 
 // (PUT /projects/{projectId})
 func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /projects/{projectId}/impacts)
+func (_ Unimplemented) ListProjectImpacts(w http.ResponseWriter, r *http.Request, projectId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -915,6 +1064,90 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetAgentRun operation middleware
+func (siw *ServerInterfaceWrapper) GetAgentRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", chi.URLParam(r, "runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgentRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmDelay operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmDelay(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "runId" -------------
+	var runId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", chi.URLParam(r, "runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmDelay(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgentSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetAgentSettings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgentSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // VerifyAudit operation middleware
 func (siw *ServerInterfaceWrapper) VerifyAudit(w http.ResponseWriter, r *http.Request) {
@@ -1127,6 +1360,37 @@ func (siw *ServerInterfaceWrapper) CreateWorkspace(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateWorkspace(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBrief operation middleware
+func (siw *ServerInterfaceWrapper) GetBrief(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "briefId" -------------
+	var briefId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "briefId", chi.URLParam(r, "briefId"), &briefId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "briefId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBrief(w, r, briefId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1508,6 +1772,28 @@ func (siw *ServerInterfaceWrapper) EditMessage(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// RequestPlan operation middleware
+func (siw *ServerInterfaceWrapper) RequestPlan(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestPlan(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProjects operation middleware
 func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.Request) {
 
@@ -1638,6 +1924,37 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProjectImpacts operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectImpacts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectImpacts(w, r, projectId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2180,6 +2497,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agent-runs/{runId}", wrapper.GetAgentRun)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/agent-runs/{runId}/confirm", wrapper.ConfirmDelay)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agents/settings", wrapper.GetAgentSettings)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/audit/verify", wrapper.VerifyAudit)
 	})
 	r.Group(func(r chi.Router) {
@@ -2211,6 +2537,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/workspaces", wrapper.CreateWorkspace)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/briefs/{briefId}", wrapper.GetBrief)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/channels", wrapper.ListChannels)
@@ -2252,6 +2581,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/messages/{messageId}", wrapper.EditMessage)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/plans", wrapper.RequestPlan)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/projects", wrapper.ListProjects)
 	})
 	r.Group(func(r chi.Router) {
@@ -2265,6 +2597,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/projects/{projectId}", wrapper.UpdateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/projects/{projectId}/impacts", wrapper.ListProjectImpacts)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/projects/{projectId}/risk", wrapper.GetRisk)

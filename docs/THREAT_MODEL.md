@@ -12,15 +12,15 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Tenant isolation | [x] App connects as a non-owner, non-superuser DB role. ENABLE and FORCE row level security on every tenant table. Set tenant with `SET LOCAL app.workspace_id` inside each transaction (never session-level SET; connection pools leak it). | Implemented | Bootstrap roles, runtime catalog checks, forced RLS, transaction helper, isolation tests. |
 | Tenant isolation | [ ] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Pending | No search implementation. |
 | Tenant isolation | [ ] Redis keys, websocket channels, cache entries, queue payloads and storage paths are all prefixed with the workspace id. Jobs re-verify tenant and permissions when they run. | Partial | Current query caches include workspace IDs; worker re-verifies service sessions and policy each batch. Workspace-prefixed Redis topics, leases, presence and flood budgets; chat fanout rechecks tenant policy. Storage remains gated. |
-| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation and hostile queued references. CI runs both suites without skips. |
+| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal/brief/run/impact endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation, delay detection, create-plan jobs and hostile queued references. CI runs both suites without skips. |
 | AI / agent safety | [x] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Implemented | Escaped delimited data blocks; fixed system instructions; hostile chat fixture cannot mutate tasks or approve proposals. |
-| AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools or write dependencies; strict local schema and typed executors; generation only creates pending proposals. |
+| AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools or write dependencies; strict local schema and typed executors; generation creates only pending domain proposals plus code-controlled hypothetical assessments and immutable notices; no model tools or direct task mutation. |
 | AI / agent safety | [x] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Implemented | Locked transaction checks status, expiry, review/approval hashes and execution marker; adversarial and concurrent execution tests. |
 | AI / agent safety | [x] Execute with the approving user's permissions, never elevated agent permissions. | Implemented | Executor rechecks live approver membership and TaskWrite through policy.Can; revoked-role test. |
 | AI / agent safety | [x] Sanitize rendered AI output: no external images or auto-loading links, escape HTML. | Implemented | Inbox strips HTML, renders React text and allow-lists internal source links; inert XSS test. |
 | AI / agent safety | [x] Per-workspace LLM quotas, per-request token caps, max agent steps, timeouts. | Implemented | Persisted workspace quota reservations, bounded retries/steps, token caps, deadlines; quota exhaustion prevents provider call. |
 | Auth and sessions | [x] argon2id password hashing. Sessions in httpOnly, Secure, SameSite=Lax cookies. CSRF token on every state-changing request. Short-lived access + revocable refresh. | Implemented | Argon2id, hashed opaque access/refresh, secure host cookies, exact Origin + CSRF, rotation/replay revocation; HTTP tests. |
-| Auth and sessions | [ ] Rate limit and lock out login, signup, password reset, invite and AI endpoints. | Partial | Signup/login/invites and authenticated actions have shared budgets; persisted login lockout and bounded hashing. Internal AI enqueue has a shared per-user/workspace budget; public reset delivery and generation endpoints remain disabled. |
+| Auth and sessions | [ ] Rate limit and lock out login, signup, password reset, invite and AI endpoints. | Partial | Signup/login/invites and authenticated actions have shared budgets; persisted login lockout and bounded hashing. Internal AI enqueue has a shared per-user/workspace budget; plan requests and automatic message detection have author/workspace budgets; public reset delivery remains disabled. |
 | Auth and sessions | [x] Invite and reset tokens: random 256-bit, stored hashed, single use, short expiry. | Implemented | 256-bit random hashes; conditional single-use and expiry. Invite tests; reset issuance remains an internal delivery boundary. |
 | Auth and sessions | [ ] If JWT is used: pin the algorithm, verify exp/aud/iss. | Not applicable | Opaque hashed sessions; no JWT accepted. |
 | Authorization | [x] Every route, websocket message and job passes through policy.Can(). | Implemented | Central public/human/service action matrix; transaction-time rechecks; consumer session reauthorization. Live session/policy checks on socket frames, outbound notifications and heartbeats. |
@@ -76,7 +76,7 @@ The migration version table remains inaccessible infrastructure metadata.
 
 ## Scope gate
 
-Real agent features, public generation endpoints, uploads, OAuth, webhooks, arbitrary outbound fetches,
+Other agent features, uploads, OAuth, webhooks, arbitrary outbound fetches,
 River jobs, vector search, rich HTML, and public password-reset email delivery remain
 absent. Pending checklist controls must be satisfied before exposing these features.
 Invite links are manually shared; comments are explicitly a placeholder. Risk is a
@@ -96,3 +96,24 @@ security boundary is that even hostile model output has no write capability: val
 output produces only a pending proposal, invalid output fails, and execution requires
 independent human approval plus code checks. Administrators controlling provider
 configuration, runtime code or the database remain trusted deployment boundaries.
+
+## Delay detection and brief planning
+
+- New endpoints retain session-derived tenancy, central policy, strict allow-lists and
+  CSRF for mutations. Briefs use FORCE RLS, composite object keys and minimal grants.
+- The model never chooses a workspace, author, approver, system message body, or SQL.
+  The persisted message/version supplies identity and evidence; resolution requires
+  accessible active tasks. A foreign candidate UUID resolves to nothing.
+- Low confidence, duplicate titles and multiple task links require author confirmation.
+  Confirmation is separate from execution approval; dates remain unchanged until approved.
+- System messages carry a tenant-bound run reference and use fixed text. Human edit/delete
+  and recursive detection are denied. Evidence and model-generated plan text render as
+  sanitized React text, with only server-generated internal links.
+- Risk scenarios are separate from committed forecasts. Multi-proposal output generation
+  and single-plan execution are transactional; any failure rolls back partial effects.
+- Injection tests cover hostile chat content and a provider returning an unauthorized SQL
+  field. Other tests cover cross-workspace candidate resolution, endpoints and jobs,
+  changed input, false positives, confirmation replay, plan cycles and approval idempotency.
+- Providers are disabled by default. Mock mode is explicitly labeled deterministic demo
+  behavior. Enabling a real adapter intentionally sends bounded workspace content to the
+  deployment-selected provider; runtime keys remain worker-only and outside logs.

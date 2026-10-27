@@ -28,6 +28,9 @@ func FromEnv() (Provider, error) {
 	if vendor == "" || vendor == "disabled" {
 		return nil, nil
 	}
+	if vendor == "mock" {
+		return Demo{}, nil
+	}
 	model := os.Getenv("LLM_MODEL")
 	if model == "" {
 		return nil, ErrInvalid
@@ -53,13 +56,17 @@ func (p *remote) Complete(ctx context.Context, r Request) (Response, error) {
 		return Response{}, ErrUnavailable
 	}
 	schema := r.Schema
-	if p.vendor == "anthropic" {
-		var err error
-		schema, err = anthropicSchema(schema)
-		if err != nil {
-			return Response{}, err
-		}
+	var schemaErr error
+	switch p.vendor {
+	case "anthropic":
+		schema, schemaErr = anthropicSchema(schema)
+	case "openai":
+		schema, schemaErr = openaiSchema(schema)
 	}
+	if schemaErr != nil {
+		return Response{}, schemaErr
+	}
+
 	var body interface{}
 	endpoint := "https://api.openai.com/v1/responses"
 	if p.vendor == "openai" {
@@ -164,6 +171,15 @@ func (p *remote) Complete(ctx context.Context, r Request) (Response, error) {
 // Anthropic accepts a subset of JSON Schema. Keep the original schema for local
 // validation; describe unsupported bounds in the provider-facing copy only.
 func anthropicSchema(raw json.RawMessage) (json.RawMessage, error) {
+	return providerSchema(raw, []string{"minimum", "maximum", "minLength", "maxLength", "maxItems"})
+}
+
+// OpenAI documents pattern/format rather than string length bounds for its
+// structured schema subset; the complete original schema is still enforced locally.
+func openaiSchema(raw json.RawMessage) (json.RawMessage, error) {
+	return providerSchema(raw, []string{"minLength", "maxLength"})
+}
+func providerSchema(raw json.RawMessage, unsupported []string) (json.RawMessage, error) {
 	var schema interface{}
 	if json.Unmarshal(raw, &schema) != nil {
 		return nil, ErrInvalid
@@ -172,7 +188,7 @@ func anthropicSchema(raw json.RawMessage) (json.RawMessage, error) {
 	visit = func(value interface{}) {
 		switch v := value.(type) {
 		case map[string]interface{}:
-			for _, key := range []string{"minimum", "maximum", "minLength", "maxLength"} {
+			for _, key := range unsupported {
 				if constraint, ok := v[key]; ok {
 					b, _ := json.Marshal(map[string]interface{}{key: constraint})
 					description, _ := v["description"].(string)

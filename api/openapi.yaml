@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slipgraph API
-  version: 0.5.0
+  version: 0.6.0
   description: Workspace identity is resolved from authenticated sessions and verified membership, never caller-selected scope.
 servers:
   - url: /api
@@ -2564,6 +2564,410 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /agents/settings:
+    get:
+      operationId: getAgentSettings
+      security:
+        - sessionCookie: []
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSettings'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /plans:
+    post:
+      operationId: requestPlan
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanBriefInput'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuedRun'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /agent-runs/{runId}:
+    get:
+      operationId: getAgentRun
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRun'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /agent-runs/{runId}/confirm:
+    post:
+      operationId: confirmDelay
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmDelayInput'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRun'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{projectId}/impacts:
+    get:
+      operationId: listProjectImpacts
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRuns'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /briefs/{briefId}:
+    get:
+      operationId: getBrief
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: briefId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brief'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     sessionCookie:
@@ -3369,6 +3773,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ChatTaskLink'
+        system_run_id:
+          type: string
+          format: uuid
+          nullable: true
     MessagePage:
       type: object
       additionalProperties: false
@@ -3552,6 +3960,7 @@ components:
             - add_dependency
             - create_task
             - change_assignee
+            - create_plan
         payload:
           type: object
           additionalProperties: true
@@ -3658,3 +4067,197 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+    DelayDetection:
+      type: object
+      additionalProperties: false
+      required:
+        - is_delay
+        - task_candidates
+        - days
+        - confidence
+        - evidence_quote
+      properties:
+        is_delay:
+          type: boolean
+        task_candidates:
+          type: array
+          items:
+            type: string
+        days:
+          type: integer
+          format: int64
+        confidence:
+          type: number
+        evidence_quote:
+          type: string
+    TaskCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+    DateChange:
+      type: object
+      additionalProperties: false
+      required:
+        - task_id
+        - title
+        - before_start
+        - before_due
+        - after_start
+        - after_due
+        - reason
+        - milestone
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        before_start:
+          type: string
+          format: date-time
+        before_due:
+          type: string
+          format: date-time
+        after_start:
+          type: string
+          format: date-time
+        after_due:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        milestone:
+          type: boolean
+    WorkflowResult:
+      type: object
+      additionalProperties: false
+      required:
+        - candidates
+        - proposal_ids
+        - changes
+        - graph_version
+        - launch_flagged
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskCandidate'
+        proposal_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DateChange'
+        graph_version:
+          type: integer
+          format: int64
+        launch_flagged:
+          type: boolean
+        detection:
+          $ref: '#/components/schemas/DelayDetection'
+        project_id:
+          type: string
+          format: uuid
+        assessment:
+          $ref: '#/components/schemas/RiskAssessment'
+    AgentRun:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - kind
+        - requested_by
+        - result
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - completed
+            - failed
+            - quota_exhausted
+            - needs_confirmation
+            - ignored
+        kind:
+          type: string
+        requested_by:
+          type: string
+          format: uuid
+        result:
+          $ref: '#/components/schemas/WorkflowResult'
+    AgentRuns:
+      type: array
+      items:
+        $ref: '#/components/schemas/AgentRun'
+    PlanBriefInput:
+      type: object
+      additionalProperties: false
+      required:
+        - brief
+      properties:
+        brief:
+          type: string
+          minLength: 1
+          maxLength: 8000
+    QueuedRun:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+    ConfirmDelayInput:
+      type: object
+      additionalProperties: false
+      required:
+        - task_id
+        - days
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        days:
+          type: integer
+          minimum: 1
+          maximum: 365
+    AgentSettings:
+      type: object
+      additionalProperties: false
+      required:
+        - enabled
+        - mode
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+    Brief:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - body
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string

@@ -34,20 +34,21 @@ type TaskLink struct {
 	Status    string    `json:"status"`
 }
 type Message struct {
-	ID         uuid.UUID  `json:"id"`
-	ChannelID  uuid.UUID  `json:"channel_id"`
-	AuthorID   uuid.UUID  `json:"author_id"`
-	AuthorName string     `json:"author_name"`
-	Body       string     `json:"body"`
-	ThreadID   *uuid.UUID `json:"thread_id"`
-	ClientID   uuid.UUID  `json:"client_id"`
-	Version    int64      `json:"version"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-	Deleted    bool       `json:"deleted"`
-	ReplyCount int        `json:"reply_count"`
-	Mentions   []Mention  `json:"mentions"`
-	TaskLinks  []TaskLink `json:"task_links"`
+	SystemRunID *uuid.UUID `json:"system_run_id,omitempty"`
+	ID          uuid.UUID  `json:"id"`
+	ChannelID   uuid.UUID  `json:"channel_id"`
+	AuthorID    uuid.UUID  `json:"author_id"`
+	AuthorName  string     `json:"author_name"`
+	Body        string     `json:"body"`
+	ThreadID    *uuid.UUID `json:"thread_id"`
+	ClientID    uuid.UUID  `json:"client_id"`
+	Version     int64      `json:"version"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	Deleted     bool       `json:"deleted"`
+	ReplyCount  int        `json:"reply_count"`
+	Mentions    []Mention  `json:"mentions"`
+	TaskLinks   []TaskLink `json:"task_links"`
 }
 type Page struct {
 	Items      []Message  `json:"items"`
@@ -226,11 +227,11 @@ func references(ctx context.Context, tx database.TenantTx, actor policy.Actor, i
 	return nil
 }
 
-const messageSelect = `SELECT m.id,l.to_object,o.created_by,a.display_name,CASE WHEN o.deleted_at IS NULL THEN m.body ELSE '' END,m.thread_id,m.client_id,m.version,o.created_at,o.updated_at,o.deleted_at IS NOT NULL,(SELECT count(*) FROM app.messages reply JOIN app.objects ro ON ro.id=reply.id AND ro.workspace_id=reply.workspace_id WHERE reply.workspace_id=m.workspace_id AND reply.thread_id=m.id AND ro.deleted_at IS NULL) FROM app.messages m JOIN app.objects o ON o.id=m.id AND o.workspace_id=m.workspace_id JOIN app.members a ON a.user_id=o.created_by AND a.workspace_id=m.workspace_id JOIN app.links l ON l.from_object=m.id AND l.workspace_id=m.workspace_id AND l.link_type='belongs_to' JOIN app.channels c ON c.id=l.to_object AND c.workspace_id=m.workspace_id JOIN app.objects co ON co.id=c.id AND co.workspace_id=c.workspace_id WHERE m.workspace_id=$1 AND co.deleted_at IS NULL`
+const messageSelect = `SELECT m.id,l.to_object,o.created_by,CASE WHEN m.system_run_id IS NULL THEN a.display_name ELSE 'Slipgraph' END,CASE WHEN o.deleted_at IS NULL THEN m.body ELSE '' END,m.thread_id,m.client_id,m.version,o.created_at,o.updated_at,o.deleted_at IS NOT NULL,m.system_run_id,(SELECT count(*) FROM app.messages reply JOIN app.objects ro ON ro.id=reply.id AND ro.workspace_id=reply.workspace_id WHERE reply.workspace_id=m.workspace_id AND reply.thread_id=m.id AND ro.deleted_at IS NULL) FROM app.messages m JOIN app.objects o ON o.id=m.id AND o.workspace_id=m.workspace_id JOIN app.members a ON a.user_id=o.created_by AND a.workspace_id=m.workspace_id JOIN app.links l ON l.from_object=m.id AND l.workspace_id=m.workspace_id AND l.link_type='belongs_to' JOIN app.channels c ON c.id=l.to_object AND c.workspace_id=m.workspace_id JOIN app.objects co ON co.id=c.id AND co.workspace_id=c.workspace_id WHERE m.workspace_id=$1 AND co.deleted_at IS NULL`
 
 func scanMessage(row pgx.Row) (Message, error) {
 	m := Message{Mentions: []Mention{}, TaskLinks: []TaskLink{}}
-	err := row.Scan(&m.ID, &m.ChannelID, &m.AuthorID, &m.AuthorName, &m.Body, &m.ThreadID, &m.ClientID, &m.Version, &m.CreatedAt, &m.UpdatedAt, &m.Deleted, &m.ReplyCount)
+	err := row.Scan(&m.ID, &m.ChannelID, &m.AuthorID, &m.AuthorName, &m.Body, &m.ThreadID, &m.ClientID, &m.Version, &m.CreatedAt, &m.UpdatedAt, &m.Deleted, &m.SystemRunID, &m.ReplyCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = auth.ErrNotFound
 	}
@@ -401,6 +402,9 @@ func (s *Store) Change(ctx context.Context, session auth.Session, id uuid.UUID, 
 		old, err := message(ctx, tx, id)
 		if err != nil {
 			return err
+		}
+		if old.SystemRunID != nil {
+			return auth.ErrForbidden
 		}
 		if !policy.Can(ctx, actor, action, policy.Resource{WorkspaceID: tx.WorkspaceID().String(), OwnerID: old.AuthorID.String()}) {
 			return auth.ErrForbidden

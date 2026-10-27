@@ -9,3 +9,4 @@ coverage*
 bin/
 .idea/
 .vscode/
+__pycache__/

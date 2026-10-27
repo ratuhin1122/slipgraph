@@ -45,7 +45,7 @@ func Consume(ctx context.Context, tx database.TenantTx, actor policy.Actor, even
 		return nil
 	}
 	var exists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.risk_assessments r JOIN app.links l ON l.from_object=r.id AND l.workspace_id=r.workspace_id AND l.link_type='belongs_to' WHERE r.workspace_id=$1 AND l.to_object=$2 AND r.version=$3 AND r.algorithm_version=$4)`, tx.WorkspaceID(), project, loaded.Version, AlgorithmVersion).Scan(&exists); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.risk_assessments r JOIN app.links l ON l.from_object=r.id AND l.workspace_id=r.workspace_id AND l.link_type='belongs_to' WHERE r.scenario_run_id IS NULL AND r.workspace_id=$1 AND l.to_object=$2 AND r.version=$3 AND r.algorithm_version=$4)`, tx.WorkspaceID(), project, loaded.Version, AlgorithmVersion).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {

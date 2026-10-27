@@ -1,8 +1,8 @@
 # Slipgraph architecture
 
 Slipgraph is a multi-tenant team workspace with authenticated identity, projects,
-tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. The agent safety foundation supports human-reviewed proposals; real agent features
-and external integrations remain disabled. Provider calls are disabled by default.
+tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. Chat delay analysis and brief-to-plan generation use human-reviewed proposals.
+External integrations remain disabled. Providers are opt-in; an offline mock supports the demo.
 
 ## Runtime and boundaries
 
@@ -22,7 +22,7 @@ budgets, and expiring presence. Message bodies remain in Postgres.
    is resolved from an authenticated session and verified membership. The approved
    global identity exception is described below; it is not a business-data escape.
 2. **Generic objects.** Workspaces, tenant member projections, projects, tasks,
-   channels, messages, agent runs, proposals, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
+   channels, messages, briefs, agent runs, proposals, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
    Application IDs are UUIDv7. Mutable objects use versions and soft deletion.
 3. **Generic links.** `app.links` stores task-to-project `belongs_to`, task-to-member
    `owned_by`, task-to-blocker `blocked_by`, assessment-to-project relationships, message-to-channel `belongs_to`,
@@ -46,13 +46,14 @@ budgets, and expiring presence. Message bodies remain in Postgres.
    Before execution, verify human approval, current permissions, expiry, unchanged
    payload hash, and exactly-once application using the approver's authority.
    The proposals inbox exposes reads, approval and rejection; an authorized outbox
-   consumer executes approved changes atomically. There is no public generation endpoint.
+   consumer executes approved changes atomically. The brief endpoint queues generation;
+   chat creation queues delay detection without model calls in an HTTP or outbox transaction.
 7. **Worker-only slow work.** Dependency calculations and audit delivery run in the
    worker. LLM calls use authorized, bounded worker jobs. Transcription and embeddings
    remain gated. Redis chat fanout runs as an authorized outbox consumer.
    River infrastructure remains disabled and gated.
 8. **OpenAPI contract.** `api/openapi.yaml` defines health, authentication, membership,
-   projects, tasks, dependencies, risk reads, chat, presence, websocket frames, and proposal review. oapi-codegen produces Go interfaces
+   projects, tasks, dependencies, risk reads, chat, presence, websocket frames, proposal review, agent runs, briefs and impact scenarios. oapi-codegen produces Go interfaces
    and DTOs; openapi-typescript and openapi-fetch supply the strict TypeScript client.
    `make gen` also generates sqlc bindings. Handlers reject unknown JSON fields,
    missing required fields, invalid nulls, trailing input, and oversized bodies.
@@ -199,12 +200,13 @@ instructions never contain workspace content. Strict local JSON Schema validatio
 rejects unknown fields, duplicate keys, malformed values and remote schema references.
 Delimiters are defense in depth: only code, never model text, grants authority.
 
-The internal enqueue seam requires an authenticated human session and validates
-1–8 source objects under tenant policy. There is no API or UI for requesting an
-agent run. Worker service sessions select scope; jobs recheck the requester's live
+Explicit plan requests require an authenticated human session; other internal enqueue
+seams validate 1–8 source objects under tenant policy. The chat consumer resolves the
+original author from the persisted message, never from model output or event payloads. Worker service sessions select scope; jobs recheck the requester's live
 membership before calling a provider and before creating a pending proposal.
-Model output supports exactly reschedule_task, add_dependency, create_task and
-change_assignee. Typed validators and existing task mutation helpers retain version,
+Executable model output supports reschedule_task, add_dependency, create_task,
+change_assignee and create_plan. Delay detection has a separate schema and is never
+an executable proposal kind. Typed validators and existing task mutation helpers retain version,
 cycle, active-object, assignee and tenant checks. Model text cannot set approval,
 workspace identity, permissions, executor kind, or SQL.
 
@@ -232,8 +234,8 @@ crashed jobs without retrying an unknown charge; expiry transitions are audited.
 `LLM_PROVIDER=disabled` is the default. Explicit worker-only model/key configuration
 and conservative per-token price ceilings are required to enable an adapter. No
 live provider requests are part of tests. OpenAI uses the Responses API structured
-output format with storage disabled; Anthropic uses Messages JSON output, moving
-unsupported bounds into descriptions while retaining full local validation.
+output format with storage disabled; Anthropic uses Messages JSON output. Both move
+unsupported schema bounds into descriptions while retaining full local validation.
 Both use fixed HTTPS endpoints, reject redirects, limit response sizes and expose
 no tool calls. Contracts follow the official [OpenAI structured output guide](https://developers.openai.com/api/docs/guides/structured-outputs)
 and [Anthropic structured output guide](https://platform.claude.com/docs/en/build-with-claude/structured-outputs).
@@ -244,3 +246,54 @@ load. Viewers cannot decide. Approval is not optimistic: a stale version/hash fo
 review of fresh state. Tests cover hostile chat content, schema failure, quota
 exhaustion, retries, cross-workspace endpoints/jobs, unapproved/expired/tampered/
 replayed execution, revoked approver permission, concurrent execution and audit.
+
+## Signature workflows
+
+A `message.created` consumer queues `delay_detection` once per source event. It ignores
+system notices, deleted messages and authors without current AgentRequest permission.
+The consumer performs no model I/O. Automatic enqueue is capped at ten runs per author/
+workspace/hour; all calls share the persistent workspace budgets. The worker pins the
+message version, rechecks live author permission and source visibility before and after
+model I/O, and terminalizes invalid queued inputs. Changed/deleted input cannot silently
+produce proposals. Authenticated service sessions determine scope throughout.
+
+The detection schema contains only is_delay, task_candidates, days, confidence and
+an exact evidence_quote. Task cards/links take precedence; otherwise candidate names
+(case insensitive exact matches) or IDs resolve only to active visible tenant tasks.
+No fuzzy match silently chooses a task. A factual delay requires 1–365 calendar days
+and a literal quote from the source. Confidence below 0.85 or anything other than one
+resolved candidate produces an immutable system notice and needs_confirmation run,
+without an assessment or proposals. Only the message author can confirm one of the
+resolved candidates and its duration through a CSRF-protected endpoint. Confirmation
+queues deterministic worker analysis without another model call. Unknown targets
+require a new message containing a task card. Confirmation is not approval.
+
+Deterministic risk.Analyze evaluates a new due date equal to the task's current due date
+plus the reported days. It creates an immutable hypothetical assessment and at most
+100 reschedule proposals (including the source task) for graphs of at most 10,000 tasks.
+Each proposal pins that task's version. Affected milestone/launch warnings are assessment
+annotations, not changes to milestone flags or project dates. No task or dependency changes
+until human approval. The channel notice has fixed server-authored text and validated task
+links; it cannot be edited/deleted as a human message or recursively trigger detection.
+
+Scenario assessments have a tenant FK to their run. Actual risk consumers and `/risk`
+exclude them, so an unapproved scenario never replaces the committed graph forecast.
+The timeline offers scenario selection, an optional forecast overlay, before/after dates,
+slack explanations and launch warnings, and flags graph versions that have become stale.
+Results, notices, proposals, sources, events and audit commit together. Failed generation
+retains its quota reservations but rolls back all partial outputs.
+
+`POST /plans` stores a bounded, immutable tenant brief and queues a create_plan run.
+Its single proposal contains a project, 1–20 tasks with local keys, and at most 60
+acyclic dependencies. Strict schemas reject extra properties and any existing object IDs;
+validators reject duplicate keys/edges, missing nodes, invalid dates and cycles. The
+executor revalidates using the approver's ProjectWrite and TaskWrite permissions, then
+creates the project, tasks, links, execution marker, events and immediate audit rows in
+one transaction. Replays cannot create a second project. Briefs and run results remain
+workspace-scoped; the original brief is available as an internal source link.
+
+Use `LLM_PROVIDER=mock` on API and worker for the reproducible offline demo. The mock
+recognizes the demo delay sentence and returns a fixed three-task launch plan, clearly
+labeled in the UI; it is not a general interpreter. Real adapters use deployment-selected
+models and explicit price ceilings. No live API keys are required by CI, which also runs
+`scripts/signature_smoke.py` through the production proxy and worker in mock mode.

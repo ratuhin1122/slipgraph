@@ -32,7 +32,7 @@ func (s *Store) Risk(ctx context.Context, session auth.Session, project uuid.UUI
 		result.GraphVersion = p.GraphVersion
 		var data []byte
 		var at time.Time
-		err = tx.QueryRow(ctx, `SELECT r.version,r.assessed_at,r.assessment FROM app.risk_assessments r JOIN app.links l ON l.from_object=r.id AND l.workspace_id=r.workspace_id AND l.link_type='belongs_to' WHERE r.workspace_id=$1 AND l.to_object=$2 ORDER BY r.version DESC,r.assessed_at DESC,r.id DESC LIMIT 1`, tx.WorkspaceID(), project).Scan(&result.Version, &at, &data)
+		err = tx.QueryRow(ctx, `SELECT r.version,r.assessed_at,r.assessment FROM app.risk_assessments r JOIN app.links l ON l.from_object=r.id AND l.workspace_id=r.workspace_id AND l.link_type='belongs_to' WHERE r.scenario_run_id IS NULL AND r.workspace_id=$1 AND l.to_object=$2 ORDER BY r.version DESC,r.assessed_at DESC,r.id DESC LIMIT 1`, tx.WorkspaceID(), project).Scan(&result.Version, &at, &data)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}

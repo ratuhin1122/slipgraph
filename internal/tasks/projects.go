@@ -32,23 +32,10 @@ func (s *Store) CreateProject(ctx context.Context, session auth.Session, input P
 	if !validProject(input) {
 		return result, auth.ErrInvalid
 	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return result, err
-	}
-	err = s.Auth.InTenant(ctx, session, policy.ProjectWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
-		if err := object(ctx, tx, id, actor, "project"); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO app.projects(id,workspace_id,name,description,start_at,launch_due) VALUES($1,$2,$3,$4,$5,$6)`, id, tx.WorkspaceID(), input.Name, input.Description, normalize(input.Start), input.LaunchDue); err != nil {
-			return err
-		}
-		var err error
-		result, err = getProject(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		return emit(ctx, tx, actor, id, id, "project.created", 1, 1, nil, map[string]int64{"version": 1})
+	err := s.Auth.InTenant(ctx, session, policy.ProjectWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
+		var e error
+		result, e = CreateProjectTx(ctx, tx, actor, input)
+		return e
 	})
 	return result, err
 }
@@ -153,4 +140,31 @@ func (s *Store) Board(ctx context.Context, session auth.Session, id uuid.UUID) (
 		return rows.Err()
 	})
 	return result, err
+}
+
+// CreateProjectTx keeps approved plans and all their effects in one transaction.
+func CreateProjectTx(ctx context.Context, tx database.TenantTx, actor policy.Actor, input ProjectInput) (Project, error) {
+	var result Project
+	if !policy.Can(ctx, actor, policy.ProjectWrite, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+		return result, auth.ErrForbidden
+	}
+	if !validProject(input) {
+		return result, auth.ErrInvalid
+	}
+	id, err := uuid.NewV7()
+	if err != nil {
+		return result, err
+	}
+	if err := object(ctx, tx, id, actor, "project"); err != nil {
+		return result, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.projects(id,workspace_id,name,description,start_at,launch_due) VALUES($1,$2,$3,$4,$5,$6)`, id, tx.WorkspaceID(), input.Name, input.Description, normalize(input.Start), input.LaunchDue); err != nil {
+		return result, err
+	}
+
+	result, err = getProject(ctx, tx, id)
+	if err != nil {
+		return result, err
+	}
+	return result, emit(ctx, tx, actor, id, id, "project.created", 1, 1, nil, map[string]int64{"version": 1})
 }

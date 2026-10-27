@@ -102,6 +102,9 @@ func Run(name, defaultAddr string) int {
 		go func() { defer close(runnerDone); runner.Run(ctx) }()
 		defer func() { stop(); <-runnerDone }()
 		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}, {Name: "chat-fanout-v1", Handle: broker.Consume}, {Name: "proposal-executor-v1", Handle: proposalStore.Consume}}}
+		if provider != nil {
+			dispatcher.Consumers = append(dispatcher.Consumers, events.Consumer{Name: "delay-detection-v1", Handle: proposalStore.ConsumeMessage})
+		}
 		done := make(chan struct{})
 		go func() { defer close(done); dispatcher.Run(ctx) }()
 		defer func() { stop(); <-done }()

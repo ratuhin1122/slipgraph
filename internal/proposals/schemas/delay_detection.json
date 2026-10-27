@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "is_delay",
+    "task_candidates",
+    "days",
+    "confidence",
+    "evidence_quote"
+  ],
+  "properties": {
+    "is_delay": {
+      "type": "boolean"
+    },
+    "task_candidates": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "maxLength": 200
+      }
+    },
+    "days": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 365
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence_quote": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  }
+}
