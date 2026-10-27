@@ -131,11 +131,25 @@ func emit(ctx context.Context, tx database.TenantTx, actor policy.Actor, id, pro
 	if err != nil {
 		return err
 	}
-	return events.Write(ctx, tx, id, actorID, event, events.Payload{ProjectID: project.String(), Version: version, GraphVersion: graphVersion, Before: before, After: after})
+	writer := events.Write
+	if synchronousAudit(ctx) {
+		writer = events.WriteAudited
+	}
+	return writer(ctx, tx, id, actorID, event, events.Payload{ProjectID: project.String(), Version: version, GraphVersion: graphVersion, Before: before, After: after})
 }
 
 // Snapshots deliberately omit free text to keep pasted credentials and AI content
 // out of audit payloads. The scoped object itself retains the full user content.
 func snapshot(t Task) map[string]interface{} {
 	return map[string]interface{}{"status": t.Status, "owner_id": t.OwnerID, "start": t.Start, "due": t.Due, "estimate_minutes": t.EstimateMinutes, "milestone": t.Milestone, "reported_delay_days": t.ReportedDelayDays, "version": t.Version}
+}
+
+type auditContextKey struct{}
+
+func WithSynchronousAudit(ctx context.Context) context.Context {
+	return context.WithValue(ctx, auditContextKey{}, true)
+}
+func synchronousAudit(ctx context.Context) bool {
+	v, _ := ctx.Value(auditContextKey{}).(bool)
+	return v
 }

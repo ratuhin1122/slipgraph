@@ -12,15 +12,15 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Tenant isolation | [x] App connects as a non-owner, non-superuser DB role. ENABLE and FORCE row level security on every tenant table. Set tenant with `SET LOCAL app.workspace_id` inside each transaction (never session-level SET; connection pools leak it). | Implemented | Bootstrap roles, runtime catalog checks, forced RLS, transaction helper, isolation tests. |
 | Tenant isolation | [ ] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Pending | No search implementation. |
 | Tenant isolation | [ ] Redis keys, websocket channels, cache entries, queue payloads and storage paths are all prefixed with the workspace id. Jobs re-verify tenant and permissions when they run. | Partial | Current query caches include workspace IDs; worker re-verifies service sessions and policy each batch. Workspace-prefixed Redis topics, leases, presence and flood budgets; chat fanout rechecks tenant policy. Storage remains gated. |
-| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader and hostile queued references. CI runs both suites without skips. |
-| AI / agent safety | [ ] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Pending | Implement and test with the corresponding feature. |
-| AI / agent safety | [ ] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Pending | Implement and test with the corresponding feature. |
-| AI / agent safety | [ ] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Pending | Implement and test with the corresponding feature. |
-| AI / agent safety | [ ] Execute with the approving user's permissions, never elevated agent permissions. | Pending | Implement and test with the corresponding feature. |
-| AI / agent safety | [ ] Sanitize rendered AI output: no external images or auto-loading links, escape HTML. | Pending | Implement and test with the corresponding feature. |
-| AI / agent safety | [ ] Per-workspace LLM quotas, per-request token caps, max agent steps, timeouts. | Pending | Implement and test with the corresponding feature. |
+| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation and hostile queued references. CI runs both suites without skips. |
+| AI / agent safety | [x] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Implemented | Escaped delimited data blocks; fixed system instructions; hostile chat fixture cannot mutate tasks or approve proposals. |
+| AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools or write dependencies; strict local schema and typed executors; generation only creates pending proposals. |
+| AI / agent safety | [x] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Implemented | Locked transaction checks status, expiry, review/approval hashes and execution marker; adversarial and concurrent execution tests. |
+| AI / agent safety | [x] Execute with the approving user's permissions, never elevated agent permissions. | Implemented | Executor rechecks live approver membership and TaskWrite through policy.Can; revoked-role test. |
+| AI / agent safety | [x] Sanitize rendered AI output: no external images or auto-loading links, escape HTML. | Implemented | Inbox strips HTML, renders React text and allow-lists internal source links; inert XSS test. |
+| AI / agent safety | [x] Per-workspace LLM quotas, per-request token caps, max agent steps, timeouts. | Implemented | Persisted workspace quota reservations, bounded retries/steps, token caps, deadlines; quota exhaustion prevents provider call. |
 | Auth and sessions | [x] argon2id password hashing. Sessions in httpOnly, Secure, SameSite=Lax cookies. CSRF token on every state-changing request. Short-lived access + revocable refresh. | Implemented | Argon2id, hashed opaque access/refresh, secure host cookies, exact Origin + CSRF, rotation/replay revocation; HTTP tests. |
-| Auth and sessions | [ ] Rate limit and lock out login, signup, password reset, invite and AI endpoints. | Partial | Signup/login/invites and authenticated actions have shared budgets; persisted login lockout and bounded hashing. Public password reset delivery and AI endpoints remain disabled. |
+| Auth and sessions | [ ] Rate limit and lock out login, signup, password reset, invite and AI endpoints. | Partial | Signup/login/invites and authenticated actions have shared budgets; persisted login lockout and bounded hashing. Internal AI enqueue has a shared per-user/workspace budget; public reset delivery and generation endpoints remain disabled. |
 | Auth and sessions | [x] Invite and reset tokens: random 256-bit, stored hashed, single use, short expiry. | Implemented | 256-bit random hashes; conditional single-use and expiry. Invite tests; reset issuance remains an internal delivery boundary. |
 | Auth and sessions | [ ] If JWT is used: pin the algorithm, verify exp/aud/iss. | Not applicable | Opaque hashed sessions; no JWT accepted. |
 | Authorization | [x] Every route, websocket message and job passes through policy.Can(). | Implemented | Central public/human/service action matrix; transaction-time rechecks; consumer session reauthorization. Live session/policy checks on socket frames, outbound notifications and heartbeats. |
@@ -30,7 +30,7 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Integrations | [ ] Webhooks: verify HMAC signature with constant-time compare, check timestamp and reject replays (store delivery ids). | Pending | Implement and test with the corresponding feature. |
 | Integrations | [ ] SSRF guard on any server-side fetch: block private, loopback, link-local and metadata IP ranges, re-check after redirects and DNS resolution. | Pending | Implement and test with the corresponding feature. |
 | Audit | [x] Append-only audit_log: app role has INSERT only (REVOKE UPDATE, DELETE, TRUNCATE) plus a trigger that raises on UPDATE/DELETE. Each row stores a hash of the previous row. | Implemented | INSERT-only runtime grant; trigger blocks UPDATE/DELETE/TRUNCATE, scoped serialized SHA-256 chain and admin verification; real database tamper tests. |
-| Audit | [ ] Log: logins, role changes, invites, exports, proposals created/approved/rejected/ executed, every agent action, with actor (human or agent), workspace, before/after. | Partial | Current identity/project/task/dependency/risk/chat events include actor kind, workspace and metadata before/after. Exports/proposals/agents remain absent and gated. |
+| Audit | [ ] Log: logins, role changes, invites, exports, proposals created/approved/rejected/ executed, every agent action, with actor (human or agent), workspace, before/after. | Partial | Current identity/project/task/dependency/risk/chat events include actor kind, workspace and metadata before/after. Proposal transitions, agent completion and executed task changes write immediate audit rows with actor kind and metadata before/after; exports remain gated. |
 | Audit | [x] Redact secrets and tokens from logs and audit payloads. | Implemented | slog allow-list; explicit event snapshots omit credentials and free text; secret-key payload checks; token hashes stay in auth. |
 | Files and web | [ ] Uploads: max size, allow-listed types, magic-byte check, random object names, tenant-prefixed storage keys, never served from the app origin with active content. | Pending | Implement and test with the corresponding feature. |
 | Files and web | [ ] Strict CSP, security headers (HSTS, X-Content-Type-Options, frame-ancestors none, Referrer-Policy). Sanitize any rich text with DOMPurify. sqlc/parameterized queries only. | Partial | API/NGINX headers and CSP; parameterized queries within TenantTx; DOMPurify strips chat HTML before React text rendering. Validated internal task cards only; XSS tests. |
@@ -65,16 +65,34 @@ The migration version table remains inaccessible infrastructure metadata.
   budgets. Authorized notifications carry no text. Reconnect reloads REST state;
   pub/sub is transient and duplicate invalidations are harmless. Storage and external
   job brokers remain gated.
-- External content/LLMs: no provider enabled. Treat text as data; it cannot create
-  executor authority. Free text is excluded from event/audit snapshots.
+- External content/LLMs: providers default disabled. Fixed HTTPS provider endpoints
+  have no redirects or model tools. Worker-only keys and explicit price ceilings
+  are required; output is validated data and cannot create executor authority.
+  Free text is excluded from event/audit snapshots. Quotas reserve conservatively
+  under tenant locks; provider costs remain estimates, not billing reconciliation.
 - Containers/local host: Docker administrators can read local credential volumes.
   Production requires managed secrets, HTTPS, rotation, restricted host access,
   verified database/Redis TLS, and an exact PUBLIC_ORIGIN.
 
 ## Scope gate
 
-Agents, proposals, execution, uploads, OAuth, webhooks, outbound fetches,
+Real agent features, public generation endpoints, uploads, OAuth, webhooks, arbitrary outbound fetches,
 River jobs, vector search, rich HTML, and public password-reset email delivery remain
 absent. Pending checklist controls must be satisfied before exposing these features.
 Invite links are manually shared; comments are explicitly a placeholder. Risk is a
 calendar-based deterministic forecast and never automatically mutates downstream tasks.
+
+## Proposal safety boundary
+
+Proposal approval is an explicit human action protected by CSRF, current version,
+and a hash binding scope, payload, preview and sources. Model output cannot supply
+an approver. The worker revalidates live permissions and references; all task effects,
+outbox records and before/after audit rows commit with the execution marker.
+Terminal failure does not partially apply changes. Source IDs are represented by
+RLS-protected generic links; both run and proposal queries use TenantTx.
+
+Prompt delimiting does not prove that a model will ignore injected text. The tested
+security boundary is that even hostile model output has no write capability: valid
+output produces only a pending proposal, invalid output fails, and execution requires
+independent human approval plus code checks. Administrators controlling provider
+configuration, runtime code or the database remain trusted deployment boundaries.

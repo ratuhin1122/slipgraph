@@ -23,6 +23,11 @@ type Resource struct {
 type Action string
 
 const (
+	ProposalRead      Action = "proposal:read"
+	ProposalDecide    Action = "proposal:decide"
+	ProposalExecute   Action = "proposal:execute"
+	AgentRequest      Action = "agent:request"
+	AgentRun          Action = "agent:run"
 	ChannelRead       Action = "channel:read"
 	ChannelCreate     Action = "channel:create"
 	MessagePost       Action = "message:post"
@@ -66,7 +71,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 		return false
 	}
 	if actor.Role == Consumer {
-		return action == EventConsume || action == AuditAppend || action == RiskCompute || action == ChatFanout
+		return action == EventConsume || action == AuditAppend || action == RiskCompute || action == ChatFanout || action == ProposalExecute || action == AgentRun
 	}
 	if actor.Role != Admin && actor.Role != Member && actor.Role != Viewer {
 		return false
@@ -74,7 +79,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 	switch action {
 	case SessionRead, SessionWrite:
 		return resource.OwnerID == "" || resource.OwnerID == actor.ID
-	case WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
+	case ProposalRead, WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
 		return true
 	case MemberInvite, AuditVerify:
 		return actor.Role == Admin
@@ -82,7 +87,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 		return actor.Role == Admin && resource.OwnerID != "" && resource.OwnerID != actor.ID
 	case MessageEdit, MessageDelete:
 		return (actor.Role == Admin || actor.Role == Member) && resource.OwnerID == actor.ID
-	case ProjectWrite, TaskWrite, ChannelCreate, MessagePost, TypingWrite:
+	case ProposalDecide, AgentRequest, ProjectWrite, TaskWrite, ChannelCreate, MessagePost, TypingWrite:
 		return actor.Role == Admin || actor.Role == Member
 	default:
 		return false

@@ -14,11 +14,11 @@ func Scrub(_ []string, a slog.Attr) slog.Attr {
 		return a
 	}
 	switch a.Key {
-	case slog.TimeKey, slog.LevelKey, "request_id", "method", "status", "duration_ms", "service", "event":
+	case "input_tokens", "output_tokens", "cost_microusd", "workspace_id", "run_id", slog.TimeKey, slog.LevelKey, "request_id", "method", "status", "duration_ms", "service", "event":
 		return a
 	case slog.MessageKey:
 		switch a.Value.String() {
-		case "request", "starting", "stopped", "startup failed", "server failed", "shutdown failed", "panic recovered", "consumer failed":
+		case "model usage", "request", "starting", "stopped", "startup failed", "server failed", "shutdown failed", "panic recovered", "consumer failed":
 			return a
 		}
 	}

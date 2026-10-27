@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "version",
+    "start",
+    "due"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "due": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

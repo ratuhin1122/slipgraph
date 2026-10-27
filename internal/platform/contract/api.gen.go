@@ -31,10 +31,28 @@ const (
 	InviteInputRoleViewer InviteInputRole = "viewer"
 )
 
+// Defines values for ProposalKind.
+const (
+	AddDependency  ProposalKind = "add_dependency"
+	ChangeAssignee ProposalKind = "change_assignee"
+	CreateTask     ProposalKind = "create_task"
+	RescheduleTask ProposalKind = "reschedule_task"
+)
+
+// Defines values for ProposalStatus.
+const (
+	ProposalStatusApproved ProposalStatus = "approved"
+	ProposalStatusExecuted ProposalStatus = "executed"
+	ProposalStatusExpired  ProposalStatus = "expired"
+	ProposalStatusFailed   ProposalStatus = "failed"
+	ProposalStatusPending  ProposalStatus = "pending"
+	ProposalStatusRejected ProposalStatus = "rejected"
+)
+
 // Defines values for RiskEnvelopeStatus.
 const (
-	Pending RiskEnvelopeStatus = "pending"
-	Ready   RiskEnvelopeStatus = "ready"
+	RiskEnvelopeStatusPending RiskEnvelopeStatus = "pending"
+	RiskEnvelopeStatusReady   RiskEnvelopeStatus = "ready"
 )
 
 // Defines values for Role.
@@ -60,6 +78,12 @@ const (
 	InProgress TaskStatus = "in_progress"
 	Todo       TaskStatus = "todo"
 )
+
+// ApproveProposalInput defines model for ApproveProposalInput.
+type ApproveProposalInput struct {
+	PayloadHash string `json:"payload_hash"`
+	Version     int64  `json:"version"`
+}
 
 // AuditVerification defines model for AuditVerification.
 type AuditVerification struct {
@@ -249,6 +273,54 @@ type ProjectUpdateInput struct {
 	Version     int64      `json:"version"`
 }
 
+// Proposal defines model for Proposal.
+type Proposal struct {
+	After           map[string]interface{} `json:"after"`
+	ApprovalHash    *string                `json:"approval_hash"`
+	ApprovedBy      *openapi_types.UUID    `json:"approved_by"`
+	Before          map[string]interface{} `json:"before"`
+	CreatedByAgent  openapi_types.UUID     `json:"created_by_agent"`
+	ExecutedAt      *time.Time             `json:"executed_at"`
+	ExpiresAt       time.Time              `json:"expires_at"`
+	FailureCode     *string                `json:"failure_code"`
+	Id              openapi_types.UUID     `json:"id"`
+	Kind            ProposalKind           `json:"kind"`
+	Payload         map[string]interface{} `json:"payload"`
+	PayloadHash     string                 `json:"payload_hash"`
+	RejectionReason *string                `json:"rejection_reason"`
+	RequestedByUser openapi_types.UUID     `json:"requested_by_user"`
+	SourceLinks     []ProposalSource       `json:"source_links"`
+	SourceObjectIds []openapi_types.UUID   `json:"source_object_ids"`
+	Status          ProposalStatus         `json:"status"`
+	Version         int64                  `json:"version"`
+}
+
+// ProposalKind defines model for Proposal.Kind.
+type ProposalKind string
+
+// ProposalStatus defines model for Proposal.Status.
+type ProposalStatus string
+
+// ProposalPage defines model for ProposalPage.
+type ProposalPage struct {
+	Items      []Proposal          `json:"items"`
+	NextCursor *openapi_types.UUID `json:"next_cursor"`
+}
+
+// ProposalSource defines model for ProposalSource.
+type ProposalSource struct {
+	Href  string             `json:"href"`
+	Id    openapi_types.UUID `json:"id"`
+	Label string             `json:"label"`
+}
+
+// RejectProposalInput defines model for RejectProposalInput.
+type RejectProposalInput struct {
+	PayloadHash string `json:"payload_hash"`
+	Reason      string `json:"reason"`
+	Version     int64  `json:"version"`
+}
+
 // RiskAssessment defines model for RiskAssessment.
 type RiskAssessment struct {
 	AlgorithmVersion   string       `json:"algorithm_version"`
@@ -420,6 +492,11 @@ type ListMessagesParams struct {
 	Limit    *int                `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListProposalsParams defines parameters for ListProposals.
+type ListProposalsParams struct {
+	Before *openapi_types.UUID `form:"before,omitempty" json:"before,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginInput
 
@@ -464,6 +541,12 @@ type UpdateProjectJSONRequestBody = ProjectUpdateInput
 
 // CreateTaskJSONRequestBody defines body for CreateTask for application/json ContentType.
 type CreateTaskJSONRequestBody = TaskInput
+
+// ApproveProposalJSONRequestBody defines body for ApproveProposal for application/json ContentType.
+type ApproveProposalJSONRequestBody = ApproveProposalInput
+
+// RejectProposalJSONRequestBody defines body for RejectProposal for application/json ContentType.
+type RejectProposalJSONRequestBody = RejectProposalInput
 
 // DeleteTaskJSONRequestBody defines body for DeleteTask for application/json ContentType.
 type DeleteTaskJSONRequestBody = VersionInput
@@ -575,6 +658,18 @@ type ServerInterface interface {
 
 	// (POST /projects/{projectId}/tasks)
 	CreateTask(w http.ResponseWriter, r *http.Request, projectId string)
+
+	// (GET /proposals)
+	ListProposals(w http.ResponseWriter, r *http.Request, params ListProposalsParams)
+
+	// (GET /proposals/{proposalId})
+	GetProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID)
+
+	// (POST /proposals/{proposalId}/approve)
+	ApproveProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID)
+
+	// (POST /proposals/{proposalId}/reject)
+	RejectProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID)
 
 	// (GET /realtime)
 	GetRealtime(w http.ResponseWriter, r *http.Request)
@@ -754,6 +849,26 @@ func (_ Unimplemented) GetRisk(w http.ResponseWriter, r *http.Request, projectId
 
 // (POST /projects/{projectId}/tasks)
 func (_ Unimplemented) CreateTask(w http.ResponseWriter, r *http.Request, projectId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /proposals)
+func (_ Unimplemented) ListProposals(w http.ResponseWriter, r *http.Request, params ListProposalsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /proposals/{proposalId})
+func (_ Unimplemented) GetProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /proposals/{proposalId}/approve)
+func (_ Unimplemented) ApproveProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /proposals/{proposalId}/reject)
+func (_ Unimplemented) RejectProposal(w http.ResponseWriter, r *http.Request, proposalId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1596,6 +1711,136 @@ func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListProposals operation middleware
+func (siw *ServerInterfaceWrapper) ListProposals(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProposalsParams
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "before", r.URL.Query(), &params.Before)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProposals(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProposal operation middleware
+func (siw *ServerInterfaceWrapper) GetProposal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "proposalId" -------------
+	var proposalId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposalId", chi.URLParam(r, "proposalId"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "proposalId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProposal(w, r, proposalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveProposal operation middleware
+func (siw *ServerInterfaceWrapper) ApproveProposal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "proposalId" -------------
+	var proposalId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposalId", chi.URLParam(r, "proposalId"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "proposalId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveProposal(w, r, proposalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectProposal operation middleware
+func (siw *ServerInterfaceWrapper) RejectProposal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "proposalId" -------------
+	var proposalId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposalId", chi.URLParam(r, "proposalId"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "proposalId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectProposal(w, r, proposalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetRealtime operation middleware
 func (siw *ServerInterfaceWrapper) GetRealtime(w http.ResponseWriter, r *http.Request) {
 
@@ -2026,6 +2271,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/projects/{projectId}/tasks", wrapper.CreateTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proposals", wrapper.ListProposals)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proposals/{proposalId}", wrapper.GetProposal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proposals/{proposalId}/approve", wrapper.ApproveProposal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proposals/{proposalId}/reject", wrapper.RejectProposal)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/realtime", wrapper.GetRealtime)

@@ -78,5 +78,20 @@ the environment; never paste it into Git, logs, or command history).
 
 `make test` includes the 10k graph benchmark with a 200 ms budget. Database and
 identity/project/chat integration suites run as separate Docker-backed invocations.
-Comments, AI agents, and automatic proposal execution are not enabled. See [architecture](docs/ARCHITECTURE.md) and the
+Comments and real AI agent features are not enabled. See [architecture](docs/ARCHITECTURE.md) and the
 [security checklist](docs/THREAT_MODEL.md) for the nine foundations and feature gates.
+
+## Agent safety foundation
+
+Open `/proposals` to review pending proposals, compare before/after fields and inspect
+source links. Admins/members may approve or reject; viewers may only read. Approval
+pins the displayed payload hash and version. The worker rechecks permissions,
+expiry, hash and tenant references before atomically applying the change and audit.
+
+Providers default to `LLM_PROVIDER=disabled`, and there is deliberately no public
+agent-generation endpoint. The internal worker seam and deterministic fixtures cover
+safe future integration. Optional worker-only configuration is documented in
+`.env.example`: select a supported model/provider, inject its API key securely, and
+set conservative input/output micro-USD per-token ceilings. Workspace quotas reserve
+budget before each bounded attempt; cost logs are estimates. Live provider calls
+are not required for tests or local startup.

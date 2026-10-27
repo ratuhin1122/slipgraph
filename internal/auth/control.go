@@ -135,3 +135,27 @@ func (s *Service) AuthorizeConsumer(ctx context.Context, tx database.TenantTx, a
 	}
 	return nil
 }
+
+// InConsumer derives scope from a verified service session and rechecks it inside the transaction.
+func (s *Service) InConsumer(ctx context.Context, actor policy.Actor, fn func(database.TenantTx) error) error {
+	workspace, err := uuid.Parse(actor.WorkspaceID)
+	if err != nil {
+		return ErrForbidden
+	}
+	return database.WithTenant(ctx, s.pool, workspace, func(tx database.TenantTx) error {
+		if err := s.AuthorizeConsumer(ctx, tx, actor); err != nil {
+			return err
+		}
+		return fn(tx)
+	})
+}
+
+// JobMember resolves a persisted human grant, never a role supplied by a job payload.
+func (s *Service) JobMember(ctx context.Context, tx database.TenantTx, user uuid.UUID, action policy.Action) (policy.Actor, error) {
+	actor := policy.Actor{ID: user.String(), WorkspaceID: tx.WorkspaceID().String()}
+	err := tx.QueryRow(ctx, `SELECT m.role FROM app.members m JOIN app.objects o ON o.workspace_id=m.workspace_id AND o.id=m.id JOIN identity.memberships d ON d.workspace_id=m.workspace_id AND d.user_id=m.user_id WHERE m.workspace_id=$1 AND m.user_id=$2 AND o.deleted_at IS NULL FOR SHARE OF m,d`, tx.WorkspaceID(), user).Scan(&actor.Role)
+	if err != nil || !policy.Can(ctx, actor, action, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+		return actor, ErrForbidden
+	}
+	return actor, nil
+}

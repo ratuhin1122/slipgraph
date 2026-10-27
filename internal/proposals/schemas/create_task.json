@@ -1,0 +1,56 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "title",
+    "description",
+    "owner_id",
+    "start",
+    "due",
+    "estimate_minutes",
+    "milestone"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "owner_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "due": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "estimate_minutes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5256000
+    },
+    "milestone": {
+      "type": "boolean"
+    }
+  }
+}

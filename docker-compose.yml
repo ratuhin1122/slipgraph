@@ -120,6 +120,14 @@ services:
     environment:
       <<: *runtime-env
       HTTP_ADDR: ':8081'
+      LLM_PROVIDER: '${LLM_PROVIDER:-disabled}'
+      LLM_MODEL: '${LLM_MODEL:-}'
+      OPENAI_API_KEY: '${OPENAI_API_KEY:-}'
+      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
+      LLM_DAILY_TOKENS: '${LLM_DAILY_TOKENS:-100000}'
+      LLM_DAILY_COST_MICROUSD: '${LLM_DAILY_COST_MICROUSD:-1000000}'
+      LLM_INPUT_MICROUSD_PER_TOKEN: '${LLM_INPUT_MICROUSD_PER_TOKEN:-}'
+      LLM_OUTPUT_MICROUSD_PER_TOKEN: '${LLM_OUTPUT_MICROUSD_PER_TOKEN:-}'
     depends_on:
       migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}

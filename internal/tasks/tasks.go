@@ -36,6 +36,18 @@ func owner(ctx context.Context, tx database.TenantTx, task uuid.UUID, target *uu
 }
 func (s *Store) CreateTask(ctx context.Context, session auth.Session, project uuid.UUID, input TaskInput) (Task, error) {
 	var result Task
+	err := s.Auth.InTenant(ctx, session, policy.TaskWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
+		var err error
+		result, err = CreateTx(ctx, tx, actor, project, input)
+		return err
+	})
+	return result, err
+}
+func CreateTx(ctx context.Context, tx database.TenantTx, actor policy.Actor, project uuid.UUID, input TaskInput) (Task, error) {
+	var result Task
+	if !policy.Can(ctx, actor, policy.TaskWrite, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+		return result, auth.ErrForbidden
+	}
 	if !validTask(input) {
 		return result, auth.ErrInvalid
 	}
@@ -43,7 +55,7 @@ func (s *Store) CreateTask(ctx context.Context, session auth.Session, project uu
 	if err != nil {
 		return result, err
 	}
-	err = s.Auth.InTenant(ctx, session, policy.TaskWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
+	errResult := func() error {
 		if err := projectLock(ctx, tx, project, false); err != nil {
 			return err
 		}
@@ -76,15 +88,28 @@ func (s *Store) CreateTask(ctx context.Context, session auth.Session, project uu
 			return err
 		}
 		return emit(ctx, tx, actor, id, project, "task.created", 1, graphVersion, nil, snapshot(result))
+	}()
+	return result, errResult
+}
+
+func (s *Store) UpdateTask(ctx context.Context, session auth.Session, id uuid.UUID, version int64, input TaskInput) (Task, error) {
+	var result Task
+	err := s.Auth.InTenant(ctx, session, policy.TaskWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
+		var err error
+		result, err = UpdateTx(ctx, tx, actor, id, version, input)
+		return err
 	})
 	return result, err
 }
-func (s *Store) UpdateTask(ctx context.Context, session auth.Session, id uuid.UUID, version int64, input TaskInput) (Task, error) {
+func UpdateTx(ctx context.Context, tx database.TenantTx, actor policy.Actor, id uuid.UUID, version int64, input TaskInput) (Task, error) {
 	var result Task
+	if !policy.Can(ctx, actor, policy.TaskWrite, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+		return result, auth.ErrForbidden
+	}
 	if !validTask(input) || version < 1 {
 		return result, auth.ErrInvalid
 	}
-	err := s.Auth.InTenant(ctx, session, policy.TaskWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
+	errResult := func() error {
 		old, err := getTask(ctx, tx, id)
 		if err != nil {
 			return err
@@ -142,9 +167,10 @@ func (s *Store) UpdateTask(ctx context.Context, session auth.Session, id uuid.UU
 			return err
 		}
 		return emit(ctx, tx, actor, id, old.ProjectID, "task.updated", result.Version, graphVersion, snapshot(old), snapshot(result))
-	})
-	return result, err
+	}()
+	return result, errResult
 }
+
 func (s *Store) DeleteTask(ctx context.Context, session auth.Session, id uuid.UUID, version int64) error {
 	return s.Auth.InTenant(ctx, session, policy.TaskWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
 		old, err := getTask(ctx, tx, id)
@@ -235,10 +261,22 @@ func (s *Store) RemoveDependency(ctx context.Context, session auth.Session, task
 }
 func (s *Store) dependency(ctx context.Context, session auth.Session, taskID, blockerID uuid.UUID, version int64, add bool) (Task, error) {
 	var result Task
+	err := s.Auth.InTenant(ctx, session, policy.TaskWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
+		var err error
+		result, err = DependencyTx(ctx, tx, actor, taskID, blockerID, version, add)
+		return err
+	})
+	return result, err
+}
+func DependencyTx(ctx context.Context, tx database.TenantTx, actor policy.Actor, taskID, blockerID uuid.UUID, version int64, add bool) (Task, error) {
+	var result Task
+	if !policy.Can(ctx, actor, policy.TaskWrite, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+		return result, auth.ErrForbidden
+	}
 	if version < 1 {
 		return result, auth.ErrInvalid
 	}
-	err := s.Auth.InTenant(ctx, session, policy.TaskWrite, "", func(tx database.TenantTx, actor policy.Actor) error {
+	errResult := func() error {
 		task, err := getTask(ctx, tx, taskID)
 		if err != nil {
 			return err
@@ -322,6 +360,20 @@ func (s *Store) dependency(ctx context.Context, session auth.Session, taskID, bl
 			return err
 		}
 		return emit(ctx, tx, actor, taskID, task.ProjectID, event, result.Version, graphVersion, nil, map[string]string{"task_id": taskID.String(), "blocker_id": blockerID.String()})
-	})
-	return result, err
+	}()
+	return result, errResult
 }
+
+func ReadTx(ctx context.Context, tx database.TenantTx, actor policy.Actor, id uuid.UUID) (Task, error) {
+	if !policy.Can(ctx, actor, policy.TaskRead, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+		return Task{}, auth.ErrForbidden
+	}
+	return getTask(ctx, tx, id)
+}
+func ProjectTx(ctx context.Context, tx database.TenantTx, actor policy.Actor, id uuid.UUID) (Project, error) {
+	if !policy.Can(ctx, actor, policy.ProjectRead, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
+		return Project{}, auth.ErrForbidden
+	}
+	return getProject(ctx, tx, id)
+}
+func ValidInput(input TaskInput) bool { return validTask(input) }

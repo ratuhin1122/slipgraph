@@ -15,10 +15,12 @@ import (
 	"github.com/slipgraph/slipgraph/internal/auth"
 	"github.com/slipgraph/slipgraph/internal/chat"
 	"github.com/slipgraph/slipgraph/internal/events"
+	"github.com/slipgraph/slipgraph/internal/llm"
 	"github.com/slipgraph/slipgraph/internal/platform/config"
 	"github.com/slipgraph/slipgraph/internal/platform/database"
 	"github.com/slipgraph/slipgraph/internal/platform/httpserver"
 	"github.com/slipgraph/slipgraph/internal/platform/logging"
+	"github.com/slipgraph/slipgraph/internal/proposals"
 	"github.com/slipgraph/slipgraph/internal/realtime"
 	"github.com/slipgraph/slipgraph/internal/risk"
 )
@@ -84,7 +86,22 @@ func Run(name, defaultAddr string) int {
 		defer gateway.Shutdown()
 		handler = httpserver.NewRealtimeAPI(logger, endpoints, gateway, probes...)
 	} else {
-		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}, {Name: "chat-fanout-v1", Handle: broker.Consume}}}
+		provider, err := llm.FromEnv()
+		if err != nil {
+			logger.Error("startup failed", "error", err)
+			return 1
+		}
+		limits, err := proposals.LimitsFromEnv()
+		if err != nil {
+			logger.Error("startup failed", "error", err)
+			return 1
+		}
+		proposalStore := &proposals.Store{Auth: identity}
+		runner := &proposals.Runner{Store: proposalStore, Provider: provider, Limits: limits, Logger: logger}
+		runnerDone := make(chan struct{})
+		go func() { defer close(runnerDone); runner.Run(ctx) }()
+		defer func() { stop(); <-runnerDone }()
+		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}, {Name: "chat-fanout-v1", Handle: broker.Consume}, {Name: "proposal-executor-v1", Handle: proposalStore.Consume}}}
 		done := make(chan struct{})
 		go func() { defer close(done); dispatcher.Run(ctx) }()
 		defer func() { stop(); <-done }()

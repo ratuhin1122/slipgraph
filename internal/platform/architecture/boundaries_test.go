@@ -116,3 +116,25 @@ func TestGuardRejectsBypass(t *testing.T) {
 		}
 	}
 }
+
+func TestLLMHasNoDomainWriteDependencies(t *testing.T) {
+	files, err := filepath.Glob("../../llm/*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") {
+			continue
+		}
+		tree, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imp := range tree.Imports {
+			path, _ := strconv.Unquote(imp.Path.Value)
+			if strings.Contains(path, "/internal/") || strings.Contains(path, "pgx") || strings.Contains(path, "database/sql") {
+				t.Errorf("provider has domain access: %s", path)
+			}
+		}
+	}
+}

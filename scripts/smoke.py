@@ -146,6 +146,8 @@ send_frame(struct.pack("!H", 1000), 8)
 stream.close()
 connection.close()
 
+assert request("GET", "/proposals")["items"] == [], "new workspace leaked proposals"
+
 audit = request("GET", "/audit/verify")
 assert audit["valid"] and audit["entries"] >= 6, "invalid audit chain"
 # Pass the temporary access credential on stdin, never in process arguments/logs.
@@ -161,4 +163,4 @@ mutate("DELETE", f"/projects/{project['id']}", {"version": project["version"]}, 
 request("GET", f"/tasks/{first['id']}", expected=404)
 mutate("POST", "/auth/logout", expected=204)
 request("GET", "/auth/session", expected=401)
-print("Compose smoke passed: secure sessions, CSRF, CRUD, cycles, worker risk, websocket proxy/fanout, task cards, audit and soft delete.")
+print("Compose smoke passed: secure sessions, CSRF, CRUD, cycles, worker risk, websocket proxy/fanout, task cards, proposal inbox, audit and soft delete.")

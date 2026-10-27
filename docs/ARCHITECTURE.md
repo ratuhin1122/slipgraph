@@ -1,8 +1,8 @@
 # Slipgraph architecture
 
 Slipgraph is a multi-tenant team workspace with authenticated identity, projects,
-tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. Agents,
-proposals, external integrations, and AI providers remain disabled.
+tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. The agent safety foundation supports human-reviewed proposals; real agent features
+and external integrations remain disabled. Provider calls are disabled by default.
 
 ## Runtime and boundaries
 
@@ -22,11 +22,12 @@ budgets, and expiring presence. Message bodies remain in Postgres.
    is resolved from an authenticated session and verified membership. The approved
    global identity exception is described below; it is not a business-data escape.
 2. **Generic objects.** Workspaces, tenant member projections, projects, tasks,
-   channels, messages, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
+   channels, messages, agent runs, proposals, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
    Application IDs are UUIDv7. Mutable objects use versions and soft deletion.
 3. **Generic links.** `app.links` stores task-to-project `belongs_to`, task-to-member
    `owned_by`, task-to-blocker `blocked_by`, assessment-to-project relationships, message-to-channel `belongs_to`,
-   message-to-member `mentions`, and message-to-task `references`.
+   message-to-member `mentions`, message-to-task `references`, and run/proposal-to-object `source` links.
+   Proposal `source_object_ids` are derived from these canonical links, not duplicated arrays.
    Composite foreign keys prevent cross-workspace references. The requested `messages.thread_id` is a composite tenant-aware self-reference;
    other relationship columns are not duplicated in feature tables. Ownership IDs refer to tenant member objects.
 4. **Central policy.** `policy.Can` fails closed for unknown actions. Public health
@@ -44,19 +45,20 @@ budgets, and expiring presence. Message bodies remain in Postgres.
 6. **Human-approved proposals.** Agents may only create validated pending proposals.
    Before execution, verify human approval, current permissions, expiry, unchanged
    payload hash, and exactly-once application using the approver's authority.
-   No agent, proposal, approval, or executor route is enabled in this implementation.
+   The proposals inbox exposes reads, approval and rejection; an authorized outbox
+   consumer executes approved changes atomically. There is no public generation endpoint.
 7. **Worker-only slow work.** Dependency calculations and audit delivery run in the
-   worker. LLM calls, transcription, and embeddings must also be authorized worker
-   jobs when introduced. Redis chat fanout runs as an authorized outbox consumer.
+   worker. LLM calls use authorized, bounded worker jobs. Transcription and embeddings
+   remain gated. Redis chat fanout runs as an authorized outbox consumer.
    River infrastructure remains disabled and gated.
 8. **OpenAPI contract.** `api/openapi.yaml` defines health, authentication, membership,
-   projects, tasks, dependencies, risk reads, chat, presence, and websocket frames. oapi-codegen produces Go interfaces
+   projects, tasks, dependencies, risk reads, chat, presence, websocket frames, and proposal review. oapi-codegen produces Go interfaces
    and DTOs; openapi-typescript and openapi-fetch supply the strict TypeScript client.
    `make gen` also generates sqlc bindings. Handlers reject unknown JSON fields,
    missing required fields, invalid nulls, trailing input, and oversized bodies.
-9. **LLM provider boundary.** Future providers must implement the provider interface,
-   use deterministic mocks in tests, treat workspace content as untrusted data,
-   validate JSON outputs, and enforce quotas, token/step limits, and timeouts.
+9. **LLM provider boundary.** OpenAI, Anthropic and deterministic mock adapters implement `Complete` with
+   JSON schema output. Worker orchestration treats content as untrusted data,
+   validates output locally, and enforces workspace quotas and bounded calls.
    Dependency risk requires no model or external service.
 
 ## Approved identity control plane
@@ -188,3 +190,57 @@ Docker integration checks cover every chat endpoint, subscriptions, fanout, unfi
 RLS, exact Origin, missing cookies, connection/frame/post limits, oversize frames,
 revocation, own-message permissions, and presence expiry. Frontend checks cover
 inert XSS payloads, internal task cards, backoff and idempotent optimistic retries.
+
+## Agent safety foundation
+
+`internal/llm` has no domain/database dependency or write tools. Prompt assembly
+JSON-escapes workspace text in an explicit untrusted data block; fixed system
+instructions never contain workspace content. Strict local JSON Schema validation
+rejects unknown fields, duplicate keys, malformed values and remote schema references.
+Delimiters are defense in depth: only code, never model text, grants authority.
+
+The internal enqueue seam requires an authenticated human session and validates
+1–8 source objects under tenant policy. There is no API or UI for requesting an
+agent run. Worker service sessions select scope; jobs recheck the requester's live
+membership before calling a provider and before creating a pending proposal.
+Model output supports exactly reschedule_task, add_dependency, create_task and
+change_assignee. Typed validators and existing task mutation helpers retain version,
+cycle, active-object, assignee and tenant checks. Model text cannot set approval,
+workspace identity, permissions, executor kind, or SQL.
+
+`app.agent_runs` and `app.proposals` extend objects with forced RLS. Source IDs use
+composite `source` links. The review hash binds workspace, proposal ID, kind,
+canonical payload, before/after preview, sorted source IDs, requester, run and expiry.
+Approval requires the displayed version and hash and records an independent
+approval hash. The worker locks the proposal, verifies pending approval state,
+expiry (again at commit), hash, live approver permissions and tenant references,
+then applies the mutation, marks executed, and writes events and append-only audit
+rows in one transaction. Concurrent/replayed executions cannot apply twice.
+Permanent failures become failed/expired; transient transaction failures retry.
+Outbox audit delivery remains idempotent with the immediate audit rows.
+
+Defaults are 100,000 reserved tokens and 1,000,000 micro-USD per workspace per
+rolling 24 hours, 2,048 output tokens per call, at most three attempts and a
+30-second call deadline. Enqueue is limited to ten requests per user/workspace/hour.
+Workspace advisory locks serialize quota reservations. Encoded prompt/schema byte
+counts plus overhead conservatively reserve input and output before each call;
+ambiguous failures retain reservations. Usage and configured price estimates are
+logged without prompts, output or credentials. These are application budget
+estimates, not a provider billing reconciliation. A five-minute run lease terminalizes
+crashed jobs without retrying an unknown charge; expiry transitions are audited.
+
+`LLM_PROVIDER=disabled` is the default. Explicit worker-only model/key configuration
+and conservative per-token price ceilings are required to enable an adapter. No
+live provider requests are part of tests. OpenAI uses the Responses API structured
+output format with storage disabled; Anthropic uses Messages JSON output, moving
+unsupported bounds into descriptions while retaining full local validation.
+Both use fixed HTTPS endpoints, reject redirects, limit response sizes and expose
+no tool calls. Contracts follow the official [OpenAI structured output guide](https://developers.openai.com/api/docs/guides/structured-outputs)
+and [Anthropic structured output guide](https://platform.claude.com/docs/en/build-with-claude/structured-outputs).
+
+The inbox shows before/after fields, validated internal source links and review
+controls. HTML is stripped and rendered as React text; external URLs/images never
+load. Viewers cannot decide. Approval is not optimistic: a stale version/hash forces
+review of fresh state. Tests cover hostile chat content, schema failure, quota
+exhaustion, retries, cross-workspace endpoints/jobs, unapproved/expired/tampered/
+replayed execution, revoked approver permission, concurrent execution and audit.

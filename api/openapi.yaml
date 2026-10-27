@@ -1,10 +1,8 @@
 openapi: 3.0.3
 info:
   title: Slipgraph API
-  version: 0.4.0
-  description: >-
-    Workspace identity is resolved from authenticated sessions and verified membership, never caller-selected
-    scope.
+  version: 0.5.0
+  description: Workspace identity is resolved from authenticated sessions and verified membership, never caller-selected scope.
 servers:
   - url: /api
 security:
@@ -2309,6 +2307,263 @@ paths:
           $ref: '#/components/schemas/RealtimeClientFrame'
         server:
           $ref: '#/components/schemas/RealtimeServerFrame'
+  /proposals:
+    get:
+      operationId: listProposals
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalPage'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /proposals/{proposalId}:
+    get:
+      operationId: getProposal
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /proposals/{proposalId}/approve:
+    post:
+      operationId: approveProposal
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveProposalInput'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /proposals/{proposalId}/reject:
+    post:
+      operationId: rejectProposal
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectProposalInput'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     sessionCookie:
@@ -2319,9 +2574,7 @@ components:
       type: apiKey
       in: header
       name: X-CSRF-Token
-      description: >-
-        Obtain a session-bound token from GET /auth/csrf. Required for every unsafe request, including
-        signup/login.
+      description: Obtain a session-bound token from GET /auth/csrf. Required for every unsafe request, including signup/login.
   schemas:
     Health:
       type: object
@@ -3144,9 +3397,7 @@ components:
           type: string
           minLength: 1
           maxLength: 8000
-          description: >-
-            Plain text, maximum 8000 UTF-8 bytes. slipgraph://task/<uuid> references are verified and stored
-            as links.
+          description: Plain text, maximum 8000 UTF-8 bytes. slipgraph://task/<uuid> references are verified and stored as links.
         mention_ids:
           type: array
           items:
@@ -3216,8 +3467,8 @@ components:
         active:
           type: boolean
       description: >-
-        Text frames <=4096 bytes. subscribe/unsubscribe require channel_id; typing also requires active.
-        Heartbeat has no other fields. No workspace selector is accepted.
+        Text frames <=4096 bytes. subscribe/unsubscribe require channel_id; typing also requires active. Heartbeat has
+        no other fields. No workspace selector is accepted.
     RealtimeServerFrame:
       type: object
       additionalProperties: false
@@ -3251,5 +3502,159 @@ components:
         code:
           type: string
       description: >-
-        Notifications contain identifiers only. Re-fetch authorized REST data after subscribe, reconnect, and
-        event. Deduplicate events by event_id.
+        Notifications contain identifiers only. Re-fetch authorized REST data after subscribe, reconnect, and event.
+        Deduplicate events by event_id.
+    ProposalSource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - label
+        - href
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        href:
+          type: string
+    Proposal:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - kind
+        - payload
+        - payload_hash
+        - approval_hash
+        - status
+        - created_by_agent
+        - requested_by_user
+        - approved_by
+        - expires_at
+        - executed_at
+        - source_object_ids
+        - source_links
+        - before
+        - after
+        - version
+        - rejection_reason
+        - failure_code
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - reschedule_task
+            - add_dependency
+            - create_task
+            - change_assignee
+        payload:
+          type: object
+          additionalProperties: true
+        payload_hash:
+          type: string
+        approval_hash:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+            - expired
+            - executed
+            - failed
+        created_by_agent:
+          type: string
+          format: uuid
+        requested_by_user:
+          type: string
+          format: uuid
+        approved_by:
+          type: string
+          format: uuid
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+        executed_at:
+          type: string
+          format: date-time
+          nullable: true
+        source_object_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        source_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProposalSource'
+        before:
+          type: object
+          additionalProperties: true
+        after:
+          type: object
+          additionalProperties: true
+        version:
+          type: integer
+          format: int64
+        rejection_reason:
+          type: string
+          nullable: true
+        failure_code:
+          type: string
+          nullable: true
+    ProposalPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Proposal'
+        next_cursor:
+          type: string
+          format: uuid
+          nullable: true
+    ApproveProposalInput:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - payload_hash
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        payload_hash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    RejectProposalInput:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - payload_hash
+        - reason
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        payload_hash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000

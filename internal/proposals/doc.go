@@ -1,3 +1,2 @@
-// Package proposals defines the proposals module boundary for Slipgraph.
-// Feature implementations must enforce policy, tenant isolation, and outbox events.
+// Package proposals implements tenant-scoped, human-approved changes and metered worker generation.
 package proposals

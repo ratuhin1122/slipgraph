@@ -1,3 +1,2 @@
-// Package llm defines the llm module boundary for Slipgraph.
-// Feature implementations must enforce policy, tenant isolation, and outbox events.
+// Package llm provides bounded, schema-constrained model adapters without domain write capabilities.
 package llm

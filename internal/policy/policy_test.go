@@ -50,3 +50,26 @@ func TestChatMatrix(t *testing.T) {
 		}
 	}
 }
+
+func TestProposalMatrix(t *testing.T) {
+	for _, role := range []Role{Admin, Member, Viewer, Consumer, "unknown"} {
+		for _, action := range []Action{ProposalRead, ProposalDecide, ProposalExecute, AgentRequest, AgentRun} {
+			want := false
+			switch action {
+			case ProposalRead:
+				want = role == Admin || role == Member || role == Viewer
+			case ProposalDecide, AgentRequest:
+				want = role == Admin || role == Member
+			case ProposalExecute, AgentRun:
+				want = role == Consumer
+			}
+			a := Actor{ID: "id", WorkspaceID: "a", Role: role}
+			if Can(context.Background(), a, action, Resource{WorkspaceID: "a"}) != want {
+				t.Errorf("%s %s", role, action)
+			}
+			if Can(context.Background(), a, action, Resource{WorkspaceID: "b"}) {
+				t.Fatal("cross-tenant proposal policy")
+			}
+		}
+	}
+}
