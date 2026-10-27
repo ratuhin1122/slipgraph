@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/slipgraph/slipgraph/internal/auth"
 	"github.com/slipgraph/slipgraph/internal/chat"
+	"github.com/slipgraph/slipgraph/internal/meetings"
 	"github.com/slipgraph/slipgraph/internal/platform/contract"
 	"github.com/slipgraph/slipgraph/internal/platform/logging"
 	"github.com/slipgraph/slipgraph/internal/policy"
@@ -25,10 +26,12 @@ type Probe func(context.Context) error
 type taskEndpoints = tasks.HTTP
 type chatEndpoints = chat.HTTP
 type proposalEndpoints = proposals.HTTP
+type meetingEndpoints = meetings.HTTP
 type Handler struct {
 	*taskEndpoints
 	*chatEndpoints
 	*proposalEndpoints
+	*meetingEndpoints
 	*realtime.Gateway
 	*auth.HTTP
 	probes []Probe
@@ -64,7 +67,7 @@ func NewAPI(logger *slog.Logger, identity *auth.HTTP, probes ...Probe) http.Hand
 func NewRealtimeAPI(logger *slog.Logger, identity *auth.HTTP, gateway *realtime.Gateway, probes ...Probe) http.Handler {
 	r := chi.NewRouter()
 	r.Use(Middleware(logger))
-	h := &Handler{proposalEndpoints: &proposals.HTTP{Store: &proposals.Store{Auth: identity.Service}, Identity: identity}, Gateway: gateway, chatEndpoints: &chat.HTTP{Store: &chat.Store{Auth: identity.Service}, Identity: identity}, HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
+	h := &Handler{meetingEndpoints: &meetings.HTTP{Store: meetings.DefaultStore(identity.Service), Identity: identity, Uploads: make(chan struct{}, 4)}, proposalEndpoints: &proposals.HTTP{Store: &proposals.Store{Auth: identity.Service}, Identity: identity}, Gateway: gateway, chatEndpoints: &chat.HTTP{Store: &chat.Store{Auth: identity.Service}, Identity: identity}, HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
 	return contract.HandlerFromMux(h, r)
 }
 

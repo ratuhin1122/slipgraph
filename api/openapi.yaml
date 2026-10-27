@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slipgraph API
-  version: 0.6.0
+  version: 0.7.0
   description: Workspace identity is resolved from authenticated sessions and verified membership, never caller-selected scope.
 servers:
   - url: /api
@@ -2968,6 +2968,524 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /meetings/settings:
+    get:
+      operationId: getMeetingSettings
+      security:
+        - sessionCookie: []
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingSettings'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /meetings:
+    get:
+      operationId: listMeetings
+      security:
+        - sessionCookie: []
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meetings'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: uploadMeeting
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MeetingUpload'
+  /meetings/{meetingId}:
+    get:
+      operationId: getMeeting
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingDetail'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /meetings/{meetingId}/transcript:
+    get:
+      operationId: getMeetingTranscript
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: after
+          in: query
+          schema:
+            type: integer
+            minimum: -1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptPage'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /meetings/{meetingId}/segments/{segmentId}:
+    get:
+      operationId: getTranscriptSegment
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: segmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptSegment'
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /meetings/{meetingId}/media:
+    get:
+      operationId: getMeetingMedia
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Private recording download; never inline active content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: Partial recording
+        '400':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     sessionCookie:
@@ -3961,6 +4479,8 @@ components:
             - create_task
             - change_assignee
             - create_plan
+            - meeting_task
+            - record_decision
         payload:
           type: object
           additionalProperties: true
@@ -4261,3 +4781,227 @@ components:
           format: uuid
         body:
           type: string
+    MeetingSettings:
+      type: object
+      additionalProperties: false
+      required:
+        - enabled
+        - mock
+        - max_bytes
+        - max_minutes
+        - daily_minutes
+      properties:
+        enabled:
+          type: boolean
+        mock:
+          type: boolean
+        max_bytes:
+          type: integer
+          format: int64
+        max_minutes:
+          type: integer
+        daily_minutes:
+          type: integer
+    Meeting:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - title
+        - media_type
+        - size_bytes
+        - status
+        - duration_ms
+        - created_at
+        - extraction_status
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        media_type:
+          type: string
+          enum:
+            - audio/wav
+            - audio/mpeg
+            - audio/mp4
+            - video/mp4
+            - audio/webm
+            - video/webm
+        size_bytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+            - queued
+            - transcribing
+            - ready
+            - failed
+            - quota_exhausted
+        duration_ms:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        extraction_status:
+          type: string
+    Meetings:
+      type: array
+      items:
+        $ref: '#/components/schemas/Meeting'
+    MeetingSuggestion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - kind
+        - status
+        - title
+        - version
+        - payload_hash
+        - segment_id
+        - start_ms
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - meeting_task
+            - record_decision
+        status:
+          type: string
+        title:
+          type: string
+        version:
+          type: integer
+          format: int64
+        payload_hash:
+          type: string
+        segment_id:
+          type: string
+          format: uuid
+        start_ms:
+          type: integer
+          format: int64
+    MeetingDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - title
+        - media_type
+        - size_bytes
+        - status
+        - duration_ms
+        - created_at
+        - extraction_status
+        - suggestions
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        media_type:
+          type: string
+          enum:
+            - audio/wav
+            - audio/mpeg
+            - audio/mp4
+            - video/mp4
+            - audio/webm
+            - video/webm
+        size_bytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+            - queued
+            - transcribing
+            - ready
+            - failed
+            - quota_exhausted
+        duration_ms:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        extraction_status:
+          type: string
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeetingSuggestion'
+    TranscriptSegment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - ordinal
+        - start_ms
+        - end_ms
+        - speaker
+        - text
+      properties:
+        id:
+          type: string
+          format: uuid
+        ordinal:
+          type: integer
+        start_ms:
+          type: integer
+          format: int64
+        end_ms:
+          type: integer
+          format: int64
+        speaker:
+          type: string
+        text:
+          type: string
+    TranscriptPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptSegment'
+        next_cursor:
+          type: integer
+          nullable: true
+    MeetingUpload:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - project_id
+        - file
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        project_id:
+          type: string
+          format: uuid
+        file:
+          type: string
+          format: binary

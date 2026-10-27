@@ -15,6 +15,7 @@ import (
 	"github.com/slipgraph/slipgraph/internal/policy"
 	"github.com/slipgraph/slipgraph/internal/tasks"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -139,6 +140,16 @@ func sourceContent(ctx context.Context, tx database.TenantTx, a policy.Actor, id
 		}
 		var text string
 		switch kind {
+		case "transcript_segment":
+			segment, e := transcriptSource(ctx, tx, a, id)
+			if e != nil {
+				return nil, e
+			}
+			data, e := json.Marshal(segment)
+			if e != nil {
+				return nil, e
+			}
+			text = string(data)
 		case "brief":
 			if !policy.Can(ctx, a, policy.ProposalRead, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
 				return nil, auth.ErrForbidden
@@ -475,6 +486,13 @@ func sourceLinks(ctx context.Context, tx database.TenantTx, ids []uuid.UUID) ([]
 				}
 				link.Href = "/chat/" + parent.String() + "?thread=" + thread.String()
 			}
+		case "transcript_segment":
+			var meeting uuid.UUID
+			var startMS int64
+			if e := tx.QueryRow(ctx, `SELECT l.to_object,t.start_ms FROM app.transcript_segments t JOIN app.links l ON l.workspace_id=t.workspace_id AND l.from_object=t.id AND l.link_type='belongs_to' WHERE t.workspace_id=$1 AND t.id=$2`, tx.WorkspaceID(), id).Scan(&meeting, &startMS); e != nil {
+				return nil, e
+			}
+			link.Href = "/meetings/" + meeting.String() + "?segment=" + id.String() + "&t=" + strconv.FormatFloat(float64(startMS)/1000, 'f', 3, 64)
 		case "brief":
 			link.Href = "/plans?brief=" + id.String()
 		case "project":

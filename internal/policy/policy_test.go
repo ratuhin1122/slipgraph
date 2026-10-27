@@ -73,3 +73,24 @@ func TestProposalMatrix(t *testing.T) {
 		}
 	}
 }
+
+func TestMeetingPermissionMatrix(t *testing.T) {
+	for _, role := range []Role{Admin, Member, Viewer, Consumer, Role("unknown")} {
+		actor := Actor{ID: "actor", WorkspaceID: "workspace", Role: role}
+		resource := Resource{WorkspaceID: "workspace"}
+		if got := Can(context.Background(), actor, MeetingRead, resource); got != (role == Admin || role == Member || role == Viewer) {
+			t.Fatalf("read role %s", role)
+		}
+		for _, action := range []Action{MeetingWrite, DecisionWrite} {
+			if got := Can(context.Background(), actor, action, resource); got != (role == Admin || role == Member) {
+				t.Fatalf("write role %s", role)
+			}
+		}
+		if got := Can(context.Background(), actor, MeetingTranscribe, resource); got != (role == Consumer) {
+			t.Fatalf("job role %s", role)
+		}
+		if Can(context.Background(), actor, MeetingRead, Resource{WorkspaceID: "foreign"}) {
+			t.Fatal("cross-workspace policy accepted")
+		}
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/slipgraph/slipgraph/internal/chat"
 	"github.com/slipgraph/slipgraph/internal/events"
 	"github.com/slipgraph/slipgraph/internal/llm"
+	"github.com/slipgraph/slipgraph/internal/meetings"
 	"github.com/slipgraph/slipgraph/internal/platform/config"
 	"github.com/slipgraph/slipgraph/internal/platform/database"
 	"github.com/slipgraph/slipgraph/internal/platform/httpserver"
@@ -73,6 +74,10 @@ func Run(name, defaultAddr string) int {
 		return 1
 	}
 	probes := []httpserver.Probe{pool.Ping, func(ctx context.Context) error { return cache.Ping(ctx).Err() }}
+	if _, err := meetings.LoadConfig(); err != nil {
+		logger.Error("startup failed", "error", err)
+		return 1
+	}
 	broker := &realtime.Broker{Redis: cache}
 	var handler http.Handler
 	if name == "api" {
@@ -96,7 +101,16 @@ func Run(name, defaultAddr string) int {
 			logger.Error("startup failed", "error", err)
 			return 1
 		}
+		transcriber, err := meetings.TranscriberFromEnv()
+		if err != nil || (transcriber != nil && provider == nil) {
+			logger.Error("startup failed", "error", err)
+			return 1
+		}
 		proposalStore := &proposals.Store{Auth: identity}
+		meetingRunner := &meetings.Runner{Store: meetings.DefaultStore(identity), Transcriber: transcriber, Probe: meetings.FFProbe{}, Proposals: proposalStore, Logger: logger}
+		meetingDone := make(chan struct{})
+		go func() { defer close(meetingDone); meetingRunner.Run(ctx) }()
+		defer func() { stop(); <-meetingDone }()
 		runner := &proposals.Runner{Store: proposalStore, Provider: provider, Limits: limits, Logger: logger}
 		runnerDone := make(chan struct{})
 		go func() { defer close(runnerDone); runner.Run(ctx) }()
@@ -110,7 +124,7 @@ func Run(name, defaultAddr string) int {
 		defer func() { stop(); <-done }()
 		handler = httpserver.New(logger, probes...)
 	}
-	server := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError)}
+	server := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 120 * time.Second, WriteTimeout: 120 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError)}
 	result := make(chan error, 1)
 	go func() { result <- server.ListenAndServe() }()
 	logger.Info("starting")

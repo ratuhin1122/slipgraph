@@ -109,3 +109,11 @@ No live calls are required for tests. Run `python scripts/signature_smoke.py` ag
 a mock-enabled stack for the production-worker demo test. Original briefs are immutable
 and source-linked; plans are bounded to 20 tasks/60 dependencies and delay scenarios
 to 100 proposed date changes. See the architecture for quota and safety semantics.
+
+## Meetings
+
+Open `/meetings` to upload a private recording, search its timestamped transcript,
+seek to evidence and review extracted decisions/actions. Enable both
+`TRANSCRIPTION_PROVIDER=mock` and `LLM_PROVIDER=mock` for the offline demo.
+The transcription fixture is explicitly labeled; actual media duration is still checked.
+[Meeting configuration and limits](docs/MEETINGS.md) describes quotas, storage and real providers.

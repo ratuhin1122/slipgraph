@@ -1,0 +1,98 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decisions",
+    "actions"
+  ],
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "segment_id",
+          "quote",
+          "title",
+          "details"
+        ],
+        "properties": {
+          "segment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "details": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "description",
+          "start",
+          "due",
+          "estimate_minutes",
+          "milestone",
+          "segment_id",
+          "quote"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "due": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estimate_minutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5256000
+          },
+          "milestone": {
+            "type": "boolean"
+          },
+          "segment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    }
+  }
+}

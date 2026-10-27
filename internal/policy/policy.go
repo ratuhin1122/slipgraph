@@ -23,6 +23,10 @@ type Resource struct {
 type Action string
 
 const (
+	MeetingRead       Action = "meeting:read"
+	MeetingWrite      Action = "meeting:write"
+	MeetingTranscribe Action = "meeting:transcribe"
+	DecisionWrite     Action = "decision:write"
 	ProposalRead      Action = "proposal:read"
 	ProposalDecide    Action = "proposal:decide"
 	ProposalExecute   Action = "proposal:execute"
@@ -71,7 +75,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 		return false
 	}
 	if actor.Role == Consumer {
-		return action == EventConsume || action == AuditAppend || action == RiskCompute || action == ChatFanout || action == ProposalExecute || action == AgentRun
+		return action == EventConsume || action == AuditAppend || action == RiskCompute || action == ChatFanout || action == ProposalExecute || action == AgentRun || action == MeetingTranscribe
 	}
 	if actor.Role != Admin && actor.Role != Member && actor.Role != Viewer {
 		return false
@@ -79,7 +83,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 	switch action {
 	case SessionRead, SessionWrite:
 		return resource.OwnerID == "" || resource.OwnerID == actor.ID
-	case ProposalRead, WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
+	case MeetingRead, ProposalRead, WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
 		return true
 	case MemberInvite, AuditVerify:
 		return actor.Role == Admin
@@ -87,7 +91,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 		return actor.Role == Admin && resource.OwnerID != "" && resource.OwnerID != actor.ID
 	case MessageEdit, MessageDelete:
 		return (actor.Role == Admin || actor.Role == Member) && resource.OwnerID == actor.ID
-	case ProposalDecide, AgentRequest, ProjectWrite, TaskWrite, ChannelCreate, MessagePost, TypingWrite:
+	case MeetingWrite, DecisionWrite, ProposalDecide, AgentRequest, ProjectWrite, TaskWrite, ChannelCreate, MessagePost, TypingWrite:
 		return actor.Role == Admin || actor.Role == Member
 	default:
 		return false

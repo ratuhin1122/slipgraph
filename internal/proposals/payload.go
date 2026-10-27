@@ -19,7 +19,7 @@ var schemas embed.FS
 
 func Schema(kind string) (json.RawMessage, error) {
 	switch kind {
-	case "reschedule_task", "add_dependency", "create_task", "change_assignee", "create_plan", "delay_detection":
+	case "reschedule_task", "add_dependency", "create_task", "change_assignee", "create_plan", "delay_detection", "meeting_extraction", "meeting_task", "record_decision":
 		b, e := schemas.ReadFile("schemas/" + kind + ".json")
 		return b, e
 	}
@@ -65,6 +65,10 @@ func Decode(kind string, data []byte) (Executor, json.RawMessage, error) {
 	}
 	var e Executor
 	switch kind {
+	case "meeting_task":
+		e = &MeetingTask{}
+	case "record_decision":
+		e = &RecordDecision{}
 	case "create_plan":
 		e = &CreatePlan{}
 	case "reschedule_task":

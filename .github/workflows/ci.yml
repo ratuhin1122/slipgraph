@@ -67,6 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LLM_PROVIDER: mock
+      TRANSCRIPTION_PROVIDER: mock
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
@@ -79,6 +80,7 @@ jobs:
           docker compose exec -T worker wget -qO- http://localhost:8081/healthz
       - run: python3 scripts/smoke.py
       - run: python3 scripts/signature_smoke.py
+      - run: python3 scripts/meetings_smoke.py
       - name: Proxy follows API address changes
         run: |
           old_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' slipgraph-api-1)

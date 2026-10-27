@@ -1,3 +1,3 @@
-// Package meetings defines the meetings module boundary for Slipgraph.
-// Feature implementations must enforce policy, tenant isolation, and outbox events.
+// Package meetings handles private recordings, quota-controlled transcription,
+// and timestamped source evidence for human-reviewed decisions and actions.
 package meetings

@@ -9,7 +9,7 @@ origin = os.environ.get("PUBLIC_ORIGIN", "http://localhost:5173").rstrip("/")
 cookies: dict[str, str] = {}
 
 
-def request(method: str, path: str, body=None, csrf=None, expected=200):
+def request(method: str, path: str, body=None, csrf=None, expected=200, raw=False, content_type=None):
     headers = {"Origin": origin}
     if cookies:
         headers["Cookie"] = "; ".join(f"{key}={value}" for key, value in cookies.items())
@@ -17,8 +17,8 @@ def request(method: str, path: str, body=None, csrf=None, expected=200):
         headers["X-CSRF-Token"] = csrf
     data = None
     if body is not None:
-        headers["Content-Type"] = "application/json"
-        data = json.dumps(body).encode()
+        headers["Content-Type"] = content_type or "application/json"
+        data = body if isinstance(body, bytes) else json.dumps(body).encode()
     req = urllib.request.Request(origin + "/api" + path, data=data, headers=headers, method=method)
     try:
         response = urllib.request.urlopen(req, timeout=15)
@@ -32,7 +32,7 @@ def request(method: str, path: str, body=None, csrf=None, expected=200):
                 cookies[key] = cookie.value
         assert response.status == expected, f"{method} {path}: expected {expected}, received {response.status}"
         payload = response.read()
-        return json.loads(payload) if payload else None
+        return payload if raw else json.loads(payload) if payload else None
 
 
 def mutate(method, path, body=None, expected=200):

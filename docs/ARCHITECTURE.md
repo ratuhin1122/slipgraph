@@ -1,7 +1,7 @@
 # Slipgraph architecture
 
 Slipgraph is a multi-tenant team workspace with authenticated identity, projects,
-tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. Chat delay analysis and brief-to-plan generation use human-reviewed proposals.
+tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. Chat delay analysis, brief planning, and meeting extraction use human-reviewed proposals.
 External integrations remain disabled. Providers are opt-in; an offline mock supports the demo.
 
 ## Runtime and boundaries
@@ -22,7 +22,7 @@ budgets, and expiring presence. Message bodies remain in Postgres.
    is resolved from an authenticated session and verified membership. The approved
    global identity exception is described below; it is not a business-data escape.
 2. **Generic objects.** Workspaces, tenant member projections, projects, tasks,
-   channels, messages, briefs, agent runs, proposals, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
+   channels, messages, briefs, meetings, transcript segments, decisions, agent runs, proposals, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
    Application IDs are UUIDv7. Mutable objects use versions and soft deletion.
 3. **Generic links.** `app.links` stores task-to-project `belongs_to`, task-to-member
    `owned_by`, task-to-blocker `blocked_by`, assessment-to-project relationships, message-to-channel `belongs_to`,
@@ -49,11 +49,11 @@ budgets, and expiring presence. Message bodies remain in Postgres.
    consumer executes approved changes atomically. The brief endpoint queues generation;
    chat creation queues delay detection without model calls in an HTTP or outbox transaction.
 7. **Worker-only slow work.** Dependency calculations and audit delivery run in the
-   worker. LLM calls use authorized, bounded worker jobs. Transcription and embeddings
+   worker. LLM calls and transcription use authorized, bounded worker jobs. Embeddings
    remain gated. Redis chat fanout runs as an authorized outbox consumer.
    River infrastructure remains disabled and gated.
 8. **OpenAPI contract.** `api/openapi.yaml` defines health, authentication, membership,
-   projects, tasks, dependencies, risk reads, chat, presence, websocket frames, proposal review, agent runs, briefs and impact scenarios. oapi-codegen produces Go interfaces
+   projects, tasks, dependencies, risk reads, chat, presence, websocket frames, proposal review, agent runs, briefs, impact scenarios, meetings, private recordings and transcript evidence. oapi-codegen produces Go interfaces
    and DTOs; openapi-typescript and openapi-fetch supply the strict TypeScript client.
    `make gen` also generates sqlc bindings. Handlers reject unknown JSON fields,
    missing required fields, invalid nulls, trailing input, and oversized bodies.
@@ -205,7 +205,7 @@ seams validate 1–8 source objects under tenant policy. The chat consumer resol
 original author from the persisted message, never from model output or event payloads. Worker service sessions select scope; jobs recheck the requester's live
 membership before calling a provider and before creating a pending proposal.
 Executable model output supports reschedule_task, add_dependency, create_task,
-change_assignee and create_plan. Delay detection has a separate schema and is never
+change_assignee, create_plan, meeting_task and record_decision. Delay detection has a separate schema and is never
 an executable proposal kind. Typed validators and existing task mutation helpers retain version,
 cycle, active-object, assignee and tenant checks. Model text cannot set approval,
 workspace identity, permissions, executor kind, or SQL.
@@ -297,3 +297,63 @@ recognizes the demo delay sentence and returns a fixed three-task launch plan, c
 labeled in the UI; it is not a general interpreter. Real adapters use deployment-selected
 models and explicit price ceilings. No live API keys are required by CI, which also runs
 `scripts/signature_smoke.py` through the production proxy and worker in mock mode.
+
+## Meetings and recordings
+
+Meetings and immutable transcript segments extend objects; generic belongs_to links
+connect meetings to projects and segments to meetings. Approved decisions also extend
+objects and source-link the segment. All three tables have ENABLE/FORCE RLS, explicit
+runtime grants and composite tenant keys. Workspace identity always comes from the
+verified session or consumer identity. Member/admin writers upload; viewers read.
+
+The multipart endpoint accepts a title, project_id resource selector and recording.
+It rejects unknown/duplicate fields, limits the recording to 25,000,000 bytes and the
+entire multipart body to that limit plus 16 KiB, allows WAV/MP3/MP4/WebM, and checks the file signature
+against the declared media type. Supplied filenames are ignored. Four streaming upload
+slots bound concurrent per-process I/O. Files use random UUID names under workspace UUID
+prefixes through internal/filestore.Store. The local adapter checks scope before opening
+or deleting, uses exclusive creates/private permissions and never maps keys to public URLs.
+A failed registration removes the staged file. Data and credential volumes are preserved.
+
+The worker rechecks service policy, requester membership, project visibility and minute
+budget before claiming a job. Its shared seven-minute lease and conditional status
+transitions prevent duplicate transcription. A cancelled/crashed/uncertain attempt is
+terminal rather than automatically charged again. A fixed ffprobe command checks the stream; a bounded FFmpeg decode counts audio
+samples to measure billable duration without trusting container metadata. Both have
+deadlines, limited output/allocation and local-only input protocols; filenames
+and URLs never become shell arguments. The child runs as the restricted runtime user.
+Recordings must contain audio and be no longer than 60 minutes (or the configured daily
+budget if lower). Providers receive bounded streams behind a Transcriber interface.
+
+The default budget is 600 minutes per workspace over 24 hours. Uploads reserve up to
+60 minutes; claims renew that reservation under a workspace lock, so old queued jobs
+cannot evade the current budget. The trusted decoded-sample count reduces it to rounded-up
+actual minutes before any provider call. Unknown failures retain their reservation.
+Invalid recordings never reach the provider. Uploads are also limited to ten per
+requester/workspace/hour. Media duration and quota authority never come from the browser.
+
+Transcription stores ordered start/end milliseconds, speaker labels and untrusted text.
+Long source text is split into bounded blocks retaining the provider's original interval;
+this does not invent finer timestamps. At most 2,000 segments are persisted. Extraction
+runs contain up to eight segments and remain below the LLM prompt limit. They share the
+existing LLM budgets, retries, output schemas and job authorization. Transcript text never
+enters the instruction channel. A model can reference only its supplied segment IDs and
+must quote literal source text. The server supplies the meeting/project and timestamps.
+
+Extraction creates pending meeting_task and record_decision proposals, each hashing its
+payload and evidence. Approval and execution revalidate the exact segment, quote, timestamp,
+tenant, approver permissions and active project/meeting. Approved tasks and decisions retain source links to their transcript segments. They are created
+only by the executor, atomically with events, the execution marker and audit. Transcript
+storage and extraction queueing also commit together. No partial transcript survives a
+failed transaction. A transcript remains readable if later extraction fails or exhausts
+its model budget; the meeting page shows that state.
+
+Recordings are fetched through authenticated tenant reads as attachment/octet-stream with
+nosniff, private no-store and same-origin resource policy. The UI creates a typed media Blob
+for its audio/video element and revokes it on navigation; CSP allows blob media only.
+No uploaded HTML, SVG, script or arbitrary URL is rendered. Source links resolve through
+a meeting-scoped segment endpoint; click-to-seek uses that segment's real start time,
+not an untrusted URL time. Search and pagination apply tenant predicates in SQL.
+
+Both providers default disabled. See [meeting configuration](MEETINGS.md) for offline
+mock behavior, local storage, format/timestamp limitations and explicit real-provider setup.

@@ -46,6 +46,41 @@ func (Demo) Complete(ctx context.Context, r Request) (Response, error) {
 			}
 		}
 		out = map[string]interface{}{"is_delay": delay, "task_candidates": names, "days": days, "confidence": confidence, "evidence_quote": quote}
+	} else if strings.Contains(string(r.Schema), "decisions") && strings.Contains(string(r.Schema), "segment_id") {
+		raw := strings.TrimSuffix(strings.TrimPrefix(r.Prompt.Data, "<UNTRUSTED_DATA>\n"), "\n</UNTRUSTED_DATA>")
+		var blocks []string
+		if json.Unmarshal([]byte(raw), &blocks) != nil {
+			return Response{}, ErrInvalid
+		}
+		decisions := []interface{}{}
+		actions := []interface{}{}
+		for _, block := range blocks {
+			_, data, ok := strings.Cut(block, " ")
+			if !ok {
+				return Response{}, ErrInvalid
+			}
+			var segment struct {
+				ID    string    `json:"segment_id"`
+				Text  string    `json:"text"`
+				Start time.Time `json:"project_start"`
+			}
+			if json.Unmarshal([]byte(data), &segment) != nil {
+				return Response{}, ErrInvalid
+			}
+			if strings.Contains(strings.ToLower(segment.Text), "ignore instructions") {
+				continue
+			}
+			if strings.Contains(segment.Text, "Decision: use the stable API.") {
+				decisions = append(decisions, map[string]interface{}{"segment_id": segment.ID, "quote": "Decision: use the stable API.", "title": "Use the stable API", "details": "Decision from the meeting."})
+			}
+			if strings.Contains(segment.Text, "Action: prepare the release checklist.") {
+				actions = append(actions, map[string]interface{}{"segment_id": segment.ID, "quote": "Action: prepare the release checklist.", "title": "Prepare the release checklist", "description": "Action from the meeting.", "start": segment.Start, "due": segment.Start.Add(24 * time.Hour), "estimate_minutes": 60, "milestone": false})
+			}
+			if len(decisions)+len(actions) > 10 {
+				break
+			}
+		}
+		out = map[string]interface{}{"decisions": decisions, "actions": actions}
 	} else if strings.Contains(string(r.Schema), "task_key") {
 		start := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
 		if date := datePattern.FindString(r.Prompt.Data); date != "" {

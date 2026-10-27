@@ -194,6 +194,9 @@ func (s *Store) prepare(ctx context.Context, tx database.TenantTx, h policy.Acto
 	return sourceContent(ctx, tx, h, ids)
 }
 func (s *Store) complete(ctx context.Context, tx database.TenantTx, h, service policy.Actor, run uuid.UUID, kind string, raw []byte, ids []uuid.UUID) (string, error) {
+	if kind == "meeting_extraction" {
+		return s.completeMeeting(ctx, tx, h, service, run, raw, ids)
+	}
 	if kind == "delay_detection" {
 		var d Detection
 		if json.Unmarshal(raw, &d) != nil {

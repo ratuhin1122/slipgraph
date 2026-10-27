@@ -12,7 +12,7 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Tenant isolation | [x] App connects as a non-owner, non-superuser DB role. ENABLE and FORCE row level security on every tenant table. Set tenant with `SET LOCAL app.workspace_id` inside each transaction (never session-level SET; connection pools leak it). | Implemented | Bootstrap roles, runtime catalog checks, forced RLS, transaction helper, isolation tests. |
 | Tenant isolation | [ ] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Pending | No search implementation. |
 | Tenant isolation | [ ] Redis keys, websocket channels, cache entries, queue payloads and storage paths are all prefixed with the workspace id. Jobs re-verify tenant and permissions when they run. | Partial | Current query caches include workspace IDs; worker re-verifies service sessions and policy each batch. Workspace-prefixed Redis topics, leases, presence and flood budgets; chat fanout rechecks tenant policy. Storage remains gated. |
-| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal/brief/run/impact endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation, delay detection, create-plan jobs and hostile queued references. CI runs both suites without skips. |
+| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal/brief/run/impact/meeting endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation, delay detection, create-plan/transcription/extraction jobs and hostile queued references. CI runs both suites without skips. |
 | AI / agent safety | [x] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Implemented | Escaped delimited data blocks; fixed system instructions; hostile chat fixture cannot mutate tasks or approve proposals. |
 | AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools or write dependencies; strict local schema and typed executors; generation creates only pending domain proposals plus code-controlled hypothetical assessments and immutable notices; no model tools or direct task mutation. |
 | AI / agent safety | [x] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Implemented | Locked transaction checks status, expiry, review/approval hashes and execution marker; adversarial and concurrent execution tests. |
@@ -32,7 +32,7 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Audit | [x] Append-only audit_log: app role has INSERT only (REVOKE UPDATE, DELETE, TRUNCATE) plus a trigger that raises on UPDATE/DELETE. Each row stores a hash of the previous row. | Implemented | INSERT-only runtime grant; trigger blocks UPDATE/DELETE/TRUNCATE, scoped serialized SHA-256 chain and admin verification; real database tamper tests. |
 | Audit | [ ] Log: logins, role changes, invites, exports, proposals created/approved/rejected/ executed, every agent action, with actor (human or agent), workspace, before/after. | Partial | Current identity/project/task/dependency/risk/chat events include actor kind, workspace and metadata before/after. Proposal transitions, agent completion and executed task changes write immediate audit rows with actor kind and metadata before/after; exports remain gated. |
 | Audit | [x] Redact secrets and tokens from logs and audit payloads. | Implemented | slog allow-list; explicit event snapshots omit credentials and free text; secret-key payload checks; token hashes stay in auth. |
-| Files and web | [ ] Uploads: max size, allow-listed types, magic-byte check, random object names, tenant-prefixed storage keys, never served from the app origin with active content. | Pending | Implement and test with the corresponding feature. |
+| Files and web | [x] Uploads: max size, allow-listed types, magic-byte check, random object names, tenant-prefixed storage keys, never served from the app origin with active content. | Implemented | Bounded streaming upload, MIME/signature allow-list, random tenant keys, private local storage, authenticated attachment downloads and inert blob player; adversarial two-workspace tests. |
 | Files and web | [ ] Strict CSP, security headers (HSTS, X-Content-Type-Options, frame-ancestors none, Referrer-Policy). Sanitize any rich text with DOMPurify. sqlc/parameterized queries only. | Partial | API/NGINX headers and CSP; parameterized queries within TenantTx; DOMPurify strips chat HTML before React text rendering. Validated internal task cards only; XSS tests. |
 | Files and web | [x] Secrets from environment only, never committed. CI runs govulncheck, npm audit, gosec, golangci-lint, and the tenant isolation suite. | Implemented | Random local secret files, ignored .env, CI scan jobs, isolation suite. Production secret manager required. |
 
@@ -76,7 +76,7 @@ The migration version table remains inaccessible infrastructure metadata.
 
 ## Scope gate
 
-Other agent features, uploads, OAuth, webhooks, arbitrary outbound fetches,
+Other agent features, OAuth, webhooks, arbitrary outbound fetches,
 River jobs, vector search, rich HTML, and public password-reset email delivery remain
 absent. Pending checklist controls must be satisfied before exposing these features.
 Invite links are manually shared; comments are explicitly a placeholder. Risk is a
@@ -117,3 +117,26 @@ configuration, runtime code or the database remain trusted deployment boundaries
 - Providers are disabled by default. Mock mode is explicitly labeled deterministic demo
   behavior. Enabling a real adapter intentionally sends bounded workspace content to the
   deployment-selected provider; runtime keys remain worker-only and outside logs.
+
+## Meeting upload, transcription and evidence
+
+- Allowed media only: streaming byte/overhead limits, signature checks, random names,
+  exclusive private writes and authenticated resource lookup. Original filenames never
+  become paths. Storage refuses foreign prefixes and traversal before touching a file.
+- FFmpeg/ffprobe receive fixed arguments and a private temporary file, have deadlines,
+  limited output/allocation and local-only protocols. Decoded sample counts set duration;
+  container metadata alone cannot undercount usage. Only one audio track is accepted.
+  Media parsing remains a deployment boundary: keep FFmpeg and the base image patched.
+- Minute reservations serialize by workspace and renew at job start. Failures preserve
+  uncertain usage. Live identity/policy is checked before external transcription and
+  before committing results; no client-supplied duration or workspace is authoritative.
+- Transcripts are immutable untrusted data, including speaker labels. Extraction has
+  strict schemas, supplied-segment allow-lists and literal quote checks. Timestamps and
+  project associations are resolved in code. Foreign/fabricated evidence fails closed.
+- Evidence is rechecked during approval/execution. Approval cannot turn a segment from
+  another meeting/workspace into authority. Decision/task creation and audit are atomic.
+- Player content is an authenticated attachment fetched into a media-only Blob, never
+  inline active HTML or an external URL. DOMPurify and React text rendering apply to
+  titles, transcripts, speaker labels, evidence and extracted suggestions.
+- Mock transcription is labeled as a fixture. Real-provider calls are opt-in and send
+  recording content to the configured provider. No live keys or calls are needed in CI.

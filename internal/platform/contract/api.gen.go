@@ -42,13 +42,59 @@ const (
 	InviteInputRoleViewer InviteInputRole = "viewer"
 )
 
+// Defines values for MeetingMediaType.
+const (
+	MeetingMediaTypeAudiomp4  MeetingMediaType = "audio/mp4"
+	MeetingMediaTypeAudiompeg MeetingMediaType = "audio/mpeg"
+	MeetingMediaTypeAudiowav  MeetingMediaType = "audio/wav"
+	MeetingMediaTypeAudiowebm MeetingMediaType = "audio/webm"
+	MeetingMediaTypeVideomp4  MeetingMediaType = "video/mp4"
+	MeetingMediaTypeVideowebm MeetingMediaType = "video/webm"
+)
+
+// Defines values for MeetingStatus.
+const (
+	MeetingStatusFailed         MeetingStatus = "failed"
+	MeetingStatusQueued         MeetingStatus = "queued"
+	MeetingStatusQuotaExhausted MeetingStatus = "quota_exhausted"
+	MeetingStatusReady          MeetingStatus = "ready"
+	MeetingStatusTranscribing   MeetingStatus = "transcribing"
+)
+
+// Defines values for MeetingDetailMediaType.
+const (
+	MeetingDetailMediaTypeAudiomp4  MeetingDetailMediaType = "audio/mp4"
+	MeetingDetailMediaTypeAudiompeg MeetingDetailMediaType = "audio/mpeg"
+	MeetingDetailMediaTypeAudiowav  MeetingDetailMediaType = "audio/wav"
+	MeetingDetailMediaTypeAudiowebm MeetingDetailMediaType = "audio/webm"
+	MeetingDetailMediaTypeVideomp4  MeetingDetailMediaType = "video/mp4"
+	MeetingDetailMediaTypeVideowebm MeetingDetailMediaType = "video/webm"
+)
+
+// Defines values for MeetingDetailStatus.
+const (
+	MeetingDetailStatusFailed         MeetingDetailStatus = "failed"
+	MeetingDetailStatusQueued         MeetingDetailStatus = "queued"
+	MeetingDetailStatusQuotaExhausted MeetingDetailStatus = "quota_exhausted"
+	MeetingDetailStatusReady          MeetingDetailStatus = "ready"
+	MeetingDetailStatusTranscribing   MeetingDetailStatus = "transcribing"
+)
+
+// Defines values for MeetingSuggestionKind.
+const (
+	MeetingSuggestionKindMeetingTask    MeetingSuggestionKind = "meeting_task"
+	MeetingSuggestionKindRecordDecision MeetingSuggestionKind = "record_decision"
+)
+
 // Defines values for ProposalKind.
 const (
-	AddDependency  ProposalKind = "add_dependency"
-	ChangeAssignee ProposalKind = "change_assignee"
-	CreatePlan     ProposalKind = "create_plan"
-	CreateTask     ProposalKind = "create_task"
-	RescheduleTask ProposalKind = "reschedule_task"
+	ProposalKindAddDependency  ProposalKind = "add_dependency"
+	ProposalKindChangeAssignee ProposalKind = "change_assignee"
+	ProposalKindCreatePlan     ProposalKind = "create_plan"
+	ProposalKindCreateTask     ProposalKind = "create_task"
+	ProposalKindMeetingTask    ProposalKind = "meeting_task"
+	ProposalKindRecordDecision ProposalKind = "record_decision"
+	ProposalKindRescheduleTask ProposalKind = "reschedule_task"
 )
 
 // Defines values for ProposalStatus.
@@ -279,6 +325,79 @@ type LoginInput struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+
+// Meeting defines model for Meeting.
+type Meeting struct {
+	CreatedAt        time.Time          `json:"created_at"`
+	DurationMs       int64              `json:"duration_ms"`
+	ExtractionStatus string             `json:"extraction_status"`
+	Id               openapi_types.UUID `json:"id"`
+	MediaType        MeetingMediaType   `json:"media_type"`
+	ProjectId        openapi_types.UUID `json:"project_id"`
+	SizeBytes        int64              `json:"size_bytes"`
+	Status           MeetingStatus      `json:"status"`
+	Title            string             `json:"title"`
+}
+
+// MeetingMediaType defines model for Meeting.MediaType.
+type MeetingMediaType string
+
+// MeetingStatus defines model for Meeting.Status.
+type MeetingStatus string
+
+// MeetingDetail defines model for MeetingDetail.
+type MeetingDetail struct {
+	CreatedAt        time.Time              `json:"created_at"`
+	DurationMs       int64                  `json:"duration_ms"`
+	ExtractionStatus string                 `json:"extraction_status"`
+	Id               openapi_types.UUID     `json:"id"`
+	MediaType        MeetingDetailMediaType `json:"media_type"`
+	ProjectId        openapi_types.UUID     `json:"project_id"`
+	SizeBytes        int64                  `json:"size_bytes"`
+	Status           MeetingDetailStatus    `json:"status"`
+	Suggestions      []MeetingSuggestion    `json:"suggestions"`
+	Title            string                 `json:"title"`
+}
+
+// MeetingDetailMediaType defines model for MeetingDetail.MediaType.
+type MeetingDetailMediaType string
+
+// MeetingDetailStatus defines model for MeetingDetail.Status.
+type MeetingDetailStatus string
+
+// MeetingSettings defines model for MeetingSettings.
+type MeetingSettings struct {
+	DailyMinutes int   `json:"daily_minutes"`
+	Enabled      bool  `json:"enabled"`
+	MaxBytes     int64 `json:"max_bytes"`
+	MaxMinutes   int   `json:"max_minutes"`
+	Mock         bool  `json:"mock"`
+}
+
+// MeetingSuggestion defines model for MeetingSuggestion.
+type MeetingSuggestion struct {
+	Id          openapi_types.UUID    `json:"id"`
+	Kind        MeetingSuggestionKind `json:"kind"`
+	PayloadHash string                `json:"payload_hash"`
+	SegmentId   openapi_types.UUID    `json:"segment_id"`
+	StartMs     int64                 `json:"start_ms"`
+	Status      string                `json:"status"`
+	Title       string                `json:"title"`
+	Version     int64                 `json:"version"`
+}
+
+// MeetingSuggestionKind defines model for MeetingSuggestion.Kind.
+type MeetingSuggestionKind string
+
+// MeetingUpload defines model for MeetingUpload.
+type MeetingUpload struct {
+	File      openapi_types.File `json:"file"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	Title     string             `json:"title"`
+}
+
+// Meetings defines model for Meetings.
+type Meetings = []Meeting
 
 // Member defines model for Member.
 type Member struct {
@@ -546,6 +665,22 @@ type TokenInput struct {
 	Token string `json:"token"`
 }
 
+// TranscriptPage defines model for TranscriptPage.
+type TranscriptPage struct {
+	Items      []TranscriptSegment `json:"items"`
+	NextCursor *int                `json:"next_cursor"`
+}
+
+// TranscriptSegment defines model for TranscriptSegment.
+type TranscriptSegment struct {
+	EndMs   int64              `json:"end_ms"`
+	Id      openapi_types.UUID `json:"id"`
+	Ordinal int                `json:"ordinal"`
+	Speaker string             `json:"speaker"`
+	StartMs int64              `json:"start_ms"`
+	Text    string             `json:"text"`
+}
+
 // User defines model for User.
 type User struct {
 	DisplayName string `json:"display_name"`
@@ -587,6 +722,12 @@ type ListMessagesParams struct {
 	Limit    *int                `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetMeetingTranscriptParams defines parameters for GetMeetingTranscript.
+type GetMeetingTranscriptParams struct {
+	Q     *string `form:"q,omitempty" json:"q,omitempty"`
+	After *int    `form:"after,omitempty" json:"after,omitempty"`
+}
+
 // ListProposalsParams defines parameters for ListProposals.
 type ListProposalsParams struct {
 	Before *openapi_types.UUID `form:"before,omitempty" json:"before,omitempty"`
@@ -618,6 +759,9 @@ type CreateInviteJSONRequestBody = InviteInput
 
 // AcceptInviteJSONRequestBody defines body for AcceptInvite for application/json ContentType.
 type AcceptInviteJSONRequestBody = TokenInput
+
+// UploadMeetingMultipartRequestBody defines body for UploadMeeting for multipart/form-data ContentType.
+type UploadMeetingMultipartRequestBody = MeetingUpload
 
 // ChangeRoleJSONRequestBody defines body for ChangeRole for application/json ContentType.
 type ChangeRoleJSONRequestBody = RoleInput
@@ -738,6 +882,27 @@ type ServerInterface interface {
 
 	// (POST /invites/accept)
 	AcceptInvite(w http.ResponseWriter, r *http.Request)
+
+	// (GET /meetings)
+	ListMeetings(w http.ResponseWriter, r *http.Request)
+
+	// (POST /meetings)
+	UploadMeeting(w http.ResponseWriter, r *http.Request)
+
+	// (GET /meetings/settings)
+	GetMeetingSettings(w http.ResponseWriter, r *http.Request)
+
+	// (GET /meetings/{meetingId})
+	GetMeeting(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID)
+
+	// (GET /meetings/{meetingId}/media)
+	GetMeetingMedia(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID)
+
+	// (GET /meetings/{meetingId}/segments/{segmentId})
+	GetTranscriptSegment(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID, segmentId openapi_types.UUID)
+
+	// (GET /meetings/{meetingId}/transcript)
+	GetMeetingTranscript(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID, params GetMeetingTranscriptParams)
 
 	// (GET /members)
 	ListMembers(w http.ResponseWriter, r *http.Request)
@@ -933,6 +1098,41 @@ func (_ Unimplemented) CreateInvite(w http.ResponseWriter, r *http.Request) {
 
 // (POST /invites/accept)
 func (_ Unimplemented) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /meetings)
+func (_ Unimplemented) ListMeetings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /meetings)
+func (_ Unimplemented) UploadMeeting(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /meetings/settings)
+func (_ Unimplemented) GetMeetingSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /meetings/{meetingId})
+func (_ Unimplemented) GetMeeting(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /meetings/{meetingId}/media)
+func (_ Unimplemented) GetMeetingMedia(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /meetings/{meetingId}/segments/{segmentId})
+func (_ Unimplemented) GetTranscriptSegment(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID, segmentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /meetings/{meetingId}/transcript)
+func (_ Unimplemented) GetMeetingTranscript(w http.ResponseWriter, r *http.Request, meetingId openapi_types.UUID, params GetMeetingTranscriptParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1644,6 +1844,220 @@ func (siw *ServerInterfaceWrapper) AcceptInvite(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AcceptInvite(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMeetings operation middleware
+func (siw *ServerInterfaceWrapper) ListMeetings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMeetings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadMeeting operation middleware
+func (siw *ServerInterfaceWrapper) UploadMeeting(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadMeeting(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMeetingSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetMeetingSettings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMeetingSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMeeting operation middleware
+func (siw *ServerInterfaceWrapper) GetMeeting(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "meetingId" -------------
+	var meetingId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "meetingId", chi.URLParam(r, "meetingId"), &meetingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "meetingId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMeeting(w, r, meetingId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMeetingMedia operation middleware
+func (siw *ServerInterfaceWrapper) GetMeetingMedia(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "meetingId" -------------
+	var meetingId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "meetingId", chi.URLParam(r, "meetingId"), &meetingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "meetingId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMeetingMedia(w, r, meetingId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTranscriptSegment operation middleware
+func (siw *ServerInterfaceWrapper) GetTranscriptSegment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "meetingId" -------------
+	var meetingId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "meetingId", chi.URLParam(r, "meetingId"), &meetingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "meetingId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "segmentId" -------------
+	var segmentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "segmentId", chi.URLParam(r, "segmentId"), &segmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "segmentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTranscriptSegment(w, r, meetingId, segmentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMeetingTranscript operation middleware
+func (siw *ServerInterfaceWrapper) GetMeetingTranscript(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "meetingId" -------------
+	var meetingId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "meetingId", chi.URLParam(r, "meetingId"), &meetingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "meetingId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMeetingTranscriptParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "q", r.URL.Query(), &params.Q)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "after", r.URL.Query(), &params.After)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMeetingTranscript(w, r, meetingId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2567,6 +2981,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/invites/accept", wrapper.AcceptInvite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/meetings", wrapper.ListMeetings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/meetings", wrapper.UploadMeeting)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/meetings/settings", wrapper.GetMeetingSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/meetings/{meetingId}", wrapper.GetMeeting)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/meetings/{meetingId}/media", wrapper.GetMeetingMedia)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/meetings/{meetingId}/segments/{segmentId}", wrapper.GetTranscriptSegment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/meetings/{meetingId}/transcript", wrapper.GetMeetingTranscript)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/members", wrapper.ListMembers)
