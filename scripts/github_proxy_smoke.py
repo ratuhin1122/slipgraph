@@ -15,7 +15,9 @@ def docker(*args):
     return result.stdout.strip()
 
 
-image = docker("compose", "images", "-q", "web")
+web = docker("compose", "ps", "-q", "web")
+assert web and "\n" not in web, "start one Compose web container first"
+image = docker("inspect", "--format", "{{.Config.Image}}", web)
 assert image and "\n" not in image, "build the Compose web image first"
 network = docker("network", "create", "slipgraph-github-check-" + secrets.token_hex(8))
 container = None

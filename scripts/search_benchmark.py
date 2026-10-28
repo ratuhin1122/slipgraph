@@ -1,5 +1,7 @@
 """Run the isolated 100k-object Docker benchmark and record honest measured results."""
 import json
+from datetime import datetime, timezone
+import platform
 import os
 from pathlib import Path
 import re
@@ -9,7 +11,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 root = Path(__file__).resolve().parent.parent
 env = dict(os.environ, SEARCH_BENCH="1", GOTOOLCHAIN=os.environ.get("GOTOOLCHAIN", "go1.26.10"))
-run = subprocess.run(["go", "test", "-count=1", "-v", "-tags=integration", "-run", "^TestSearchBenchmark$", "-timeout=10m", "./internal/auth"], cwd=root, env=env, text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+run = subprocess.run(["go", "test", "-count=1", "-v", "-tags=integration", "-run", "^TestSearchBenchmark$", "-timeout=" + os.environ.get("SEARCH_BENCH_TIMEOUT", "20m"), "./internal/auth"], cwd=root, env=env, text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
 print(run.stdout)
 if run.returncode:
     raise SystemExit(run.returncode)
@@ -17,6 +19,12 @@ match = re.search(r"SEARCH_BENCH_RESULT=(\{[^\n]+\})", run.stdout)
 if not match:
     raise SystemExit("Benchmark produced no measurement")
 data = json.loads(match.group(1))
+data["measured_at_utc"] = datetime.now(timezone.utc).isoformat()
+data["cpu_description"] = platform.processor()
+info = subprocess.run(["docker", "info", "--format", '{"memory_bytes":{{.MemTotal}},"cpus":{{.NCPU}},"server_version":"{{.ServerVersion}}"}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+data["docker"] = json.loads(info.stdout)
+data["seed_method"] = "isolated testcontainer; runtime TenantTx for synthetic objects; fixture-only index rebuild; no production data"
+data["percentile_method"] = "nearest rank on 100 serial samples after 10 warmups"
 (root / "docs" / "SEARCH_BENCHMARK.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 section = f"""<!-- search-benchmark:start -->
 ### Search benchmark

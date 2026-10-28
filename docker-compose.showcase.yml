@@ -1,0 +1,15 @@
+# Explicit local showcase profile: no real model/transcription/embedding calls.
+services:
+  api:
+    environment:
+      EMBEDDING_PROVIDER: mock
+      LLM_PROVIDER: mock
+      TRANSCRIPTION_PROVIDER: mock
+  worker:
+    environment:
+      LLM_PROVIDER: mock
+      TRANSCRIPTION_PROVIDER: mock
+      EMBEDDING_PROVIDER: mock
+      LLM_DAILY_TOKENS: '2000000'
+      LLM_DAILY_COST_MICROUSD: '100000000'
+      SEARCH_DAILY_TOKENS: '2000000'

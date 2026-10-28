@@ -1,0 +1,78 @@
+{
+  "recorded_at_utc": "2026-10-28T15:52:29.912342+00:00",
+  "mock": true,
+  "seed_tasks": 60,
+  "seed_dependencies": 63,
+  "stages": [
+    {
+      "step": "Messy brief produces one pending plan",
+      "proposals": 1,
+      "task_writes": 0
+    },
+    {
+      "step": "Human approves the project and dependency graph",
+      "tasks": 3,
+      "dependencies": 2
+    },
+    {
+      "step": "Chat reports a three-day backend delay",
+      "delay_days": 3
+    },
+    {
+      "step": "Deterministic impact; dates remain unchanged",
+      "affected_tasks": 3,
+      "launch_slip_days": 3,
+      "pending_proposals": 3
+    },
+    {
+      "step": "Review before and after; approval is separate",
+      "pending_proposals": 3
+    },
+    {
+      "step": "Approved changes execute exactly once",
+      "executed_proposals": 3
+    },
+    {
+      "step": "Append-only audit chain verifies",
+      "audit_valid": true,
+      "audit_entries": 348
+    },
+    {
+      "step": "Ask returns server-validated workspace citations",
+      "answer_claims": 1,
+      "citations": 1
+    },
+    {
+      "step": "Separate identity cannot access the launch workspace",
+      "cross_tenant_denials": 6,
+      "foreign_search_hits": 0,
+      "foreign_ask_citations": 0
+    }
+  ],
+  "date_changes": [
+    {
+      "task": "Backend API",
+      "before_due": "2030-03-05T00:00:00Z",
+      "after_due": "2030-03-08T00:00:00Z"
+    },
+    {
+      "task": "Frontend integration",
+      "before_due": "2030-03-06T00:00:00Z",
+      "after_due": "2030-03-09T00:00:00Z"
+    },
+    {
+      "task": "Launch",
+      "before_due": "2030-03-06T00:00:00Z",
+      "after_due": "2030-03-09T00:00:00Z"
+    }
+  ],
+  "audit": {
+    "valid": true,
+    "entries": 348
+  },
+  "limitations": [
+    "Three-task fixed plan and fixture answers, not real model reasoning",
+    "Audit stage verifies the real append-only chain; raw audit-table SELECT remains forbidden",
+    "Credentials and live object IDs stay in ignored .showcase files"
+  ]
+}

@@ -6,9 +6,18 @@
   "go_version": "go1.26.10",
   "objects": 100000,
   "os": "windows",
-  "p50_ms": 719.081,
-  "p95_ms": 1082.987,
+  "p50_ms": 120.025,
+  "p95_ms": 158.803,
   "samples": 100,
   "scope": "warm hybrid SQL + tenant transaction + live session/policy checks; excludes queue/provider time",
-  "warmups": 10
+  "warmups": 10,
+  "measured_at_utc": "2026-10-28T15:13:33.513865+00:00",
+  "cpu_description": "Intel64 Family 6 Model 142 Stepping 10, GenuineIntel",
+  "docker": {
+    "memory_bytes": 4021948416,
+    "cpus": 8,
+    "server_version": "29.9.2"
+  },
+  "seed_method": "isolated testcontainer; runtime TenantTx for synthetic objects; fixture-only index rebuild; no production data",
+  "percentile_method": "nearest rank on 100 serial samples after 10 warmups"
 }

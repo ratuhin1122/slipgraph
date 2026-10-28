@@ -10,3 +10,6 @@ bin/
 .idea/
 .vscode/
 __pycache__/
+
+# Private synthetic showcase accounts, cookies, captures and resumable manifests
+.showcase/

@@ -4,7 +4,13 @@ GOLANGCI_LINT ?= go run -p=1 github.com/golangci/golangci-lint/v2/cmd/golangci-l
 GOSEC ?= go run -p=1 github.com/securego/gosec/v2/cmd/gosec@v2.30.0
 GOVULNCHECK ?= go run -p=1 golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
-.PHONY: up down migrate test test-unit lint gen build
+.PHONY: up down migrate test test-unit lint gen build showcase-up seed demo benchmark gif
+ifeq ($(OS),Windows_NT)
+PYTHON ?= python
+else
+PYTHON ?= python3
+endif
+SHOWCASE_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.showcase.yml
 up:
 	docker compose up --build -d --wait
 down:
@@ -12,6 +18,7 @@ down:
 migrate:
 	docker compose run --rm migrate
 test-unit:
+	$(PYTHON) -m unittest discover -s scripts -p "test_showcase*.py"
 	go test -race $(GO_PACKAGES)
 	npm --prefix web test
 test: test-unit
@@ -35,3 +42,15 @@ gen:
 build:
 	go build $(GO_PACKAGES)
 	npm --prefix web run build
+
+# Explicit local demo profile; normal credentials, policy, RLS and quotas remain active.
+showcase-up:
+	$(SHOWCASE_COMPOSE) up --build -d --wait
+seed: showcase-up
+	$(PYTHON) scripts/showcase_seed.py
+demo: seed
+	$(PYTHON) scripts/showcase_demo.py
+benchmark:
+	$(PYTHON) scripts/search_benchmark.py
+gif:
+	$(PYTHON) scripts/showcase_gif.py

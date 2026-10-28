@@ -6,3 +6,6 @@ web/node_modules
 web/dist
 bin
 coverage*
+
+# Local synthetic accounts, private manifests and raw captures
+.showcase/

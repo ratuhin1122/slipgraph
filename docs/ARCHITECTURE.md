@@ -463,3 +463,28 @@ and [event payloads and check-run repository availability](https://docs.github.c
 
 The worker receives no GitHub OAuth client secret, token decryption key or HTTP client.
 It only processes authenticated ingress already persisted under tenant RLS.
+
+
+## Showcase and reproducible measurements
+
+The optional `docker-compose.showcase.yml` profile selects only mock LLM,
+transcription and embedding providers. `make seed` creates fictional data through
+normal session/CSRF APIs: 60 tasks, 63 dependencies, two channels, a mock recording
+and transcript, plus an independent second identity/workspace. It never accepts
+request-supplied tenant identity or bypasses policy, RLS, quotas or approval.
+Seeding is resumable, paced within ordinary limits and does not delete existing data.
+Random local credentials and live manifests/captures remain in ignored `.showcase/`
+with local-user permissions; public reports contain only synthetic counts and dates.
+
+`make demo` asserts the complete three-task mock workflow, pending-only state,
+exactly-once version changes, real audit CLI verification, validated cited answers
+and cross-identity read/search/Ask denial. The realistic launch fixture remains
+separate from the intentionally bounded three-task mock plan. The sample silent
+recording and its mock transcript are labeled; no real transcription claim is made.
+
+The 100k-task benchmark uses an isolated testcontainer and runtime TenantTx seeding,
+with fixture-only index maintenance. Measurements include retrieval, tenant and live
+session/policy checks but exclude HTTP, worker queue and provider latency. The JSON
+report records warmups, samples, dimensions, distribution, host and Docker resources.
+The README GIF consists of actual paused UI states, compressed in time, not fabricated
+screens or a claim of real-model behavior. See docs/SHOWCASE.md for reproduction.

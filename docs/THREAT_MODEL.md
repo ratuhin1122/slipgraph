@@ -256,3 +256,20 @@ reviewed OAuth exception to browser mutation CSRF: exact session-bound, single-u
 state replaces the header. Webhook POST uses vendor HMAC plus an authenticated
 service route, never browser cookies or caller-selected workspace IDs. The approved
 identity schema has not gained any global integration/business tables.
+
+
+## Showcase safety
+
+| Threat | Mitigation | Test / evidence | Status |
+| --- | --- | --- | --- |
+| Demo data or credentials sent to production | Showcase client refuses non-loopback origins, ignores proxies and refuses redirects | `ShowcaseFixtureTests.test_remote_origin_refused_before_network_or_credentials`; API demo run | Implemented |
+| Static demo passwords or recordings enter Git | Random credentials stored only in Git/Docker-ignored user-restricted `.showcase/`; public artifacts exclude tokens | `ShowcaseFixtureTests.test_private_showcase_material_is_ignored`; local seed output prints paths only | Implemented |
+| Attractive demo silently bypasses tenancy or human approval | Normal signup/login, directory tickets, CSRF and runtime policy/RLS; task versions remain unchanged pending approval | `scripts/showcase_demo.py`, `docs/SHOWCASE_RESULT.json`; ordinary two-workspace suites | Implemented |
+| Broken fixture hides dependency failures | Sixty unique tasks, six milestones, DAG and all-workstream launch ancestry checks | `ShowcaseFixtureTests.test_all_workstreams_reach_launch_without_cycles`, `test_dates_and_milestones_are_valid_calendar_inputs` | Implemented |
+| Invented benchmark or misleading model/screen recording claims | Actual isolated 100k measurement with recorded scope/resources; labeled fixed mocks, silent recording and real UI capture | `docs/SEARCH_BENCHMARK.json`, `docs/SHOWCASE.md`, captured GIF | Implemented |
+
+The showcase is opt-in local tooling, not a public seed endpoint or an unauthenticated
+fixture API. No production security controls are disabled. The benchmark's bulk
+synthetic insert and index rebuild occur only in a disposable testcontainer, never
+the running application's database. Runtime audit-table SELECT remains forbidden;
+the walkthrough verifies the real chain rather than exposing raw audit rows.

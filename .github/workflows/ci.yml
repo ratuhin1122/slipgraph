@@ -19,6 +19,8 @@ jobs:
           go-version: '1.26.x'
           check-latest: true
           cache: true
+      - name: Showcase fixture and local-only safety invariants
+        run: python3 -m unittest discover -s scripts -p "test_showcase*.py"
       - run: go mod download
       - run: go build ./cmd/... ./internal/... ./pkg/...
       - run: go vet ./cmd/... ./internal/... ./pkg/...
@@ -76,6 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
+      - run: docker compose -f docker-compose.yml -f docker-compose.showcase.yml config --quiet
       - run: docker compose build
       - run: docker compose up -d --wait --wait-timeout 180
       - name: GitHub sensitive proxy URI logging
@@ -85,7 +88,9 @@ jobs:
           curl --fail http://localhost:5173/
           curl --fail http://localhost:5173/api/healthz
           docker compose exec -T worker wget -qO- http://localhost:8081/healthz
-      - name: Product/security smoke tests followed by slipgraph audit verify
+      - name: Product/security/showcase smoke tests followed by slipgraph audit verify
+        env:
+          SHOWCASE_CI: '1'
         run: python3 scripts/run_smoke.py
       - name: Proxy follows API address changes
         run: |
