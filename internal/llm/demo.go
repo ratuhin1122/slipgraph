@@ -21,7 +21,25 @@ func (Demo) Complete(ctx context.Context, r Request) (Response, error) {
 		return Response{}, ctx.Err()
 	}
 	var out interface{}
-	if strings.Contains(string(r.Schema), "is_delay") {
+	if strings.Contains(string(r.Schema), "\"claims\"") && strings.Contains(string(r.Schema), "object_ids") {
+		raw := strings.TrimSuffix(strings.TrimPrefix(r.Prompt.Data, "<UNTRUSTED_DATA>\n"), "\n</UNTRUSTED_DATA>")
+		var blocks []string
+		if json.Unmarshal([]byte(raw), &blocks) != nil {
+			return Response{}, ErrInvalid
+		}
+		claims := []interface{}{}
+		for _, block := range blocks[1:] {
+			var h struct {
+				ObjectID string `json:"object_id"`
+				Snippet  string `json:"snippet"`
+			}
+			if json.Unmarshal([]byte(block), &h) == nil && h.ObjectID != "" {
+				claims = append(claims, map[string]interface{}{"text": "Demo retrieved excerpt: " + h.Snippet, "object_ids": []string{h.ObjectID}})
+				break
+			}
+		}
+		out = map[string]interface{}{"claims": claims}
+	} else if strings.Contains(string(r.Schema), "is_delay") {
 		// Decode escaped data so evidence is an exact quote, not prompt syntax.
 		raw := strings.TrimSuffix(strings.TrimPrefix(r.Prompt.Data, "<UNTRUSTED_DATA>\n"), "\n</UNTRUSTED_DATA>")
 		var content []string

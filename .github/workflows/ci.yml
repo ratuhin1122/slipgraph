@@ -68,6 +68,9 @@ jobs:
     env:
       LLM_PROVIDER: mock
       TRANSCRIPTION_PROVIDER: mock
+      EMBEDDING_PROVIDER: mock
+      LLM_DAILY_TOKENS: 1000000
+      LLM_DAILY_COST_MICROUSD: 10000000
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
@@ -81,6 +84,7 @@ jobs:
       - run: python3 scripts/smoke.py
       - run: python3 scripts/signature_smoke.py
       - run: python3 scripts/meetings_smoke.py
+      - run: python3 scripts/search_smoke.py
       - name: Proxy follows API address changes
         run: |
           old_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' slipgraph-api-1)

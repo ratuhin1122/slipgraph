@@ -94,3 +94,18 @@ func TestMeetingPermissionMatrix(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchMatrix(t *testing.T) {
+	for _, role := range []Role{Admin, Member, Viewer, Consumer, "unknown"} {
+		for _, action := range []Action{SearchRead, SearchAsk, SearchIndex} {
+			actor := Actor{ID: "me", WorkspaceID: "a", Role: role}
+			want := (action == SearchIndex && role == Consumer) || (action != SearchIndex && (role == Admin || role == Member || role == Viewer))
+			if Can(context.Background(), actor, action, Resource{WorkspaceID: "a"}) != want {
+				t.Errorf("role %s action %s", role, action)
+			}
+			if Can(context.Background(), actor, action, Resource{WorkspaceID: "b"}) {
+				t.Fatal("cross-tenant search permission")
+			}
+		}
+	}
+}

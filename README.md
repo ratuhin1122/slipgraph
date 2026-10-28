@@ -117,3 +117,22 @@ seek to evidence and review extracted decisions/actions. Enable both
 `TRANSCRIPTION_PROVIDER=mock` and `LLM_PROVIDER=mock` for the offline demo.
 The transcription fixture is explicitly labeled; actual media duration is still checked.
 [Meeting configuration and limits](docs/MEETINGS.md) describes quotas, storage and real providers.
+
+## Search and Ask
+
+Open the command palette with **Ctrl+K** to search tasks, messages and meeting
+transcripts or ask a question with source citations. For the offline demo enable
+`EMBEDDING_PROVIDER=mock` and `LLM_PROVIDER=mock`. Providers default to disabled.
+[Search configuration, safety and limits](docs/SEARCH.md).
+
+<!-- search-benchmark:start -->
+### Search benchmark
+
+100,000 synthetic task objects, 384-dimensional mock vectors in 100 buckets,
+one workspace, 10 warmups and 100 serial warm queries against isolated Docker Postgres.
+Measured p50 **719.08 ms**, p95 **1082.99 ms**.
+Includes hybrid SQL, tenant transaction and live session/policy checks. Excludes
+indexing, worker queue/poll delay, remote embeddings and answer generation.
+This synthetic warm-cache result is not a production latency guarantee.
+Run `python scripts/search_benchmark.py` to reproduce. Details: [measurement](docs/SEARCH_BENCHMARK.json).
+<!-- search-benchmark:end -->

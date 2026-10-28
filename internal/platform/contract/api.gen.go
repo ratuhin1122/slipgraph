@@ -120,6 +120,21 @@ const (
 	RoleViewer Role = "viewer"
 )
 
+// Defines values for SearchHitType.
+const (
+	SearchHitTypeMessage           SearchHitType = "message"
+	SearchHitTypeTask              SearchHitType = "task"
+	SearchHitTypeTranscriptSegment SearchHitType = "transcript_segment"
+)
+
+// Defines values for SearchResultStatus.
+const (
+	Complete SearchResultStatus = "complete"
+	Failed   SearchResultStatus = "failed"
+	Queued   SearchResultStatus = "queued"
+	Running  SearchResultStatus = "running"
+)
+
 // Defines values for TaskImpactRisk.
 const (
 	High   TaskImpactRisk = "high"
@@ -550,6 +565,42 @@ type RoleInput struct {
 	Version int64 `json:"version"`
 }
 
+// SearchClaim defines model for SearchClaim.
+type SearchClaim struct {
+	ObjectIds []openapi_types.UUID `json:"object_ids"`
+	Text      string               `json:"text"`
+}
+
+// SearchHit defines model for SearchHit.
+type SearchHit struct {
+	ContentHash string             `json:"content_hash"`
+	ObjectId    openapi_types.UUID `json:"object_id"`
+	Snippet     string             `json:"snippet"`
+	Title       string             `json:"title"`
+	Type        SearchHitType      `json:"type"`
+	Url         string             `json:"url"`
+}
+
+// SearchHitType defines model for SearchHit.Type.
+type SearchHitType string
+
+// SearchInput defines model for SearchInput.
+type SearchInput struct {
+	Query string `json:"query"`
+}
+
+// SearchResult defines model for SearchResult.
+type SearchResult struct {
+	Claims []SearchClaim      `json:"claims"`
+	Id     openapi_types.UUID `json:"id"`
+	Items  []SearchHit        `json:"items"`
+	Mock   bool               `json:"mock"`
+	Status SearchResultStatus `json:"status"`
+}
+
+// SearchResultStatus defines model for SearchResult.Status.
+type SearchResultStatus string
+
 // Session defines model for Session.
 type Session struct {
 	ExpiresAt     time.Time `json:"expires_at"`
@@ -736,6 +787,9 @@ type ListProposalsParams struct {
 // ConfirmDelayJSONRequestBody defines body for ConfirmDelay for application/json ContentType.
 type ConfirmDelayJSONRequestBody = ConfirmDelayInput
 
+// RequestAnswerJSONRequestBody defines body for RequestAnswer for application/json ContentType.
+type RequestAnswerJSONRequestBody = SearchInput
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginInput
 
@@ -793,6 +847,9 @@ type ApproveProposalJSONRequestBody = ApproveProposalInput
 // RejectProposalJSONRequestBody defines body for RejectProposal for application/json ContentType.
 type RejectProposalJSONRequestBody = RejectProposalInput
 
+// RequestSearchJSONRequestBody defines body for RequestSearch for application/json ContentType.
+type RequestSearchJSONRequestBody = SearchInput
+
 // DeleteTaskJSONRequestBody defines body for DeleteTask for application/json ContentType.
 type DeleteTaskJSONRequestBody = VersionInput
 
@@ -819,6 +876,9 @@ type ServerInterface interface {
 
 	// (GET /agents/settings)
 	GetAgentSettings(w http.ResponseWriter, r *http.Request)
+
+	// (POST /ask)
+	RequestAnswer(w http.ResponseWriter, r *http.Request)
 
 	// (GET /audit/verify)
 	VerifyAudit(w http.ResponseWriter, r *http.Request)
@@ -913,6 +973,9 @@ type ServerInterface interface {
 	// (DELETE /messages/{messageId})
 	DeleteMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID)
 
+	// (GET /messages/{messageId})
+	GetMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID)
+
 	// (PUT /messages/{messageId})
 	EditMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID)
 
@@ -958,6 +1021,12 @@ type ServerInterface interface {
 	// (GET /realtime)
 	GetRealtime(w http.ResponseWriter, r *http.Request)
 
+	// (POST /search)
+	RequestSearch(w http.ResponseWriter, r *http.Request)
+
+	// (GET /search/{requestId})
+	GetSearchResult(w http.ResponseWriter, r *http.Request, requestId openapi_types.UUID)
+
 	// (DELETE /tasks/{taskId})
 	DeleteTask(w http.ResponseWriter, r *http.Request, taskId string)
 
@@ -993,6 +1062,11 @@ func (_ Unimplemented) ConfirmDelay(w http.ResponseWriter, r *http.Request, runI
 
 // (GET /agents/settings)
 func (_ Unimplemented) GetAgentSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ask)
+func (_ Unimplemented) RequestAnswer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1151,6 +1225,11 @@ func (_ Unimplemented) DeleteMessage(w http.ResponseWriter, r *http.Request, mes
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /messages/{messageId})
+func (_ Unimplemented) GetMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (PUT /messages/{messageId})
 func (_ Unimplemented) EditMessage(w http.ResponseWriter, r *http.Request, messageId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1223,6 +1302,16 @@ func (_ Unimplemented) RejectProposal(w http.ResponseWriter, r *http.Request, pr
 
 // (GET /realtime)
 func (_ Unimplemented) GetRealtime(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /search)
+func (_ Unimplemented) RequestSearch(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /search/{requestId})
+func (_ Unimplemented) GetSearchResult(w http.ResponseWriter, r *http.Request, requestId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1340,6 +1429,28 @@ func (siw *ServerInterfaceWrapper) GetAgentSettings(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAgentSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestAnswer operation middleware
+func (siw *ServerInterfaceWrapper) RequestAnswer(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestAnswer(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2153,6 +2264,37 @@ func (siw *ServerInterfaceWrapper) DeleteMessage(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetMessage operation middleware
+func (siw *ServerInterfaceWrapper) GetMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "messageId" -------------
+	var messageId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageId", chi.URLParam(r, "messageId"), &messageId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMessage(w, r, messageId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EditMessage operation middleware
 func (siw *ServerInterfaceWrapper) EditMessage(w http.ResponseWriter, r *http.Request) {
 
@@ -2592,6 +2734,59 @@ func (siw *ServerInterfaceWrapper) GetRealtime(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// RequestSearch operation middleware
+func (siw *ServerInterfaceWrapper) RequestSearch(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CsrfTokenScopes, []string{})
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestSearch(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSearchResult operation middleware
+func (siw *ServerInterfaceWrapper) GetSearchResult(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "requestId" -------------
+	var requestId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "requestId", chi.URLParam(r, "requestId"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSearchResult(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteTask operation middleware
 func (siw *ServerInterfaceWrapper) DeleteTask(w http.ResponseWriter, r *http.Request) {
 
@@ -2920,6 +3115,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/agents/settings", wrapper.GetAgentSettings)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ask", wrapper.RequestAnswer)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/audit/verify", wrapper.VerifyAudit)
 	})
 	r.Group(func(r chi.Router) {
@@ -3013,6 +3211,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/messages/{messageId}", wrapper.DeleteMessage)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/messages/{messageId}", wrapper.GetMessage)
+	})
+	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/messages/{messageId}", wrapper.EditMessage)
 	})
 	r.Group(func(r chi.Router) {
@@ -3056,6 +3257,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/realtime", wrapper.GetRealtime)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/search", wrapper.RequestSearch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/search/{requestId}", wrapper.GetSearchResult)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/tasks/{taskId}", wrapper.DeleteTask)

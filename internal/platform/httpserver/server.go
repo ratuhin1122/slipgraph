@@ -19,6 +19,7 @@ import (
 	"github.com/slipgraph/slipgraph/internal/policy"
 	"github.com/slipgraph/slipgraph/internal/proposals"
 	"github.com/slipgraph/slipgraph/internal/realtime"
+	"github.com/slipgraph/slipgraph/internal/search"
 	"github.com/slipgraph/slipgraph/internal/tasks"
 )
 
@@ -26,12 +27,14 @@ type Probe func(context.Context) error
 type taskEndpoints = tasks.HTTP
 type chatEndpoints = chat.HTTP
 type proposalEndpoints = proposals.HTTP
+type searchEndpoints = search.HTTP
 type meetingEndpoints = meetings.HTTP
 type Handler struct {
 	*taskEndpoints
 	*chatEndpoints
 	*proposalEndpoints
 	*meetingEndpoints
+	*searchEndpoints
 	*realtime.Gateway
 	*auth.HTTP
 	probes []Probe
@@ -67,7 +70,7 @@ func NewAPI(logger *slog.Logger, identity *auth.HTTP, probes ...Probe) http.Hand
 func NewRealtimeAPI(logger *slog.Logger, identity *auth.HTTP, gateway *realtime.Gateway, probes ...Probe) http.Handler {
 	r := chi.NewRouter()
 	r.Use(Middleware(logger))
-	h := &Handler{meetingEndpoints: &meetings.HTTP{Store: meetings.DefaultStore(identity.Service), Identity: identity, Uploads: make(chan struct{}, 4)}, proposalEndpoints: &proposals.HTTP{Store: &proposals.Store{Auth: identity.Service}, Identity: identity}, Gateway: gateway, chatEndpoints: &chat.HTTP{Store: &chat.Store{Auth: identity.Service}, Identity: identity}, HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
+	h := &Handler{searchEndpoints: &search.HTTP{Store: &search.Store{Auth: identity.Service}, Identity: identity}, meetingEndpoints: &meetings.HTTP{Store: meetings.DefaultStore(identity.Service), Identity: identity, Uploads: make(chan struct{}, 4)}, proposalEndpoints: &proposals.HTTP{Store: &proposals.Store{Auth: identity.Service}, Identity: identity}, Gateway: gateway, chatEndpoints: &chat.HTTP{Store: &chat.Store{Auth: identity.Service}, Identity: identity}, HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
 	return contract.HandlerFromMux(h, r)
 }
 

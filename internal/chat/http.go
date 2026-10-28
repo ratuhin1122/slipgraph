@@ -13,6 +13,15 @@ type HTTP struct {
 	Identity *auth.HTTP
 }
 
+func (h *HTTP) GetMessage(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	s, ok := h.Identity.Require(w, r, policy.ChannelRead)
+	if !ok {
+		return
+	}
+	v, e := h.Store.GetMessage(r.Context(), s, id)
+	respond(w, v, e)
+}
+
 func respond(w http.ResponseWriter, value interface{}, err error) {
 	if err != nil {
 		auth.Error(w, err)

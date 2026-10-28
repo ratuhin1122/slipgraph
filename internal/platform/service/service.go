@@ -24,6 +24,7 @@ import (
 	"github.com/slipgraph/slipgraph/internal/proposals"
 	"github.com/slipgraph/slipgraph/internal/realtime"
 	"github.com/slipgraph/slipgraph/internal/risk"
+	"github.com/slipgraph/slipgraph/internal/search"
 )
 
 // Run starts the process and drains HTTP requests before closing dependency pools.
@@ -106,6 +107,25 @@ func Run(name, defaultAddr string) int {
 			logger.Error("startup failed", "error", err)
 			return 1
 		}
+		if os.Getenv("EMBEDDING_PROVIDER") == "openai" && (os.Getenv("LLM_INPUT_MICROUSD_PER_TOKEN") == "" || os.Getenv("LLM_OUTPUT_MICROUSD_PER_TOKEN") == "") {
+			logger.Error("startup failed")
+			return 1
+		}
+		embedder, err := llm.EmbedderFromEnv()
+		if err != nil {
+			logger.Error("startup failed")
+			return 1
+		}
+		budget, err := search.BudgetFromEnv()
+		if err != nil {
+			logger.Error("startup failed")
+			return 1
+		}
+		searchStore := &search.Store{Auth: identity}
+		searchRunner := &search.Runner{Store: searchStore, Embedder: embedder, Provider: provider, Logger: logger, DailyTokens: min(budget, limits.DailyTokens), DailyCostMicroUSD: limits.DailyCostMicroUSD, CostPerToken: max(limits.InputMicroUSD, limits.OutputMicroUSD)}
+		searchDone := make(chan struct{})
+		go func() { defer close(searchDone); searchRunner.Run(ctx) }()
+		defer func() { stop(); <-searchDone }()
 		proposalStore := &proposals.Store{Auth: identity}
 		meetingRunner := &meetings.Runner{Store: meetings.DefaultStore(identity), Transcriber: transcriber, Probe: meetings.FFProbe{}, Proposals: proposalStore, Logger: logger}
 		meetingDone := make(chan struct{})
@@ -115,7 +135,7 @@ func Run(name, defaultAddr string) int {
 		runnerDone := make(chan struct{})
 		go func() { defer close(runnerDone); runner.Run(ctx) }()
 		defer func() { stop(); <-runnerDone }()
-		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}, {Name: "chat-fanout-v1", Handle: broker.Consume}, {Name: "proposal-executor-v1", Handle: proposalStore.Consume}}}
+		dispatcher := &events.Dispatcher{Pool: pool, Sessions: identity, Logger: logger, Consumers: []events.Consumer{{Name: "search-index-v1", Handle: searchStore.Consume}, {Name: "audit-v1", Handle: audit.Consume}, {Name: "risk-v1", Handle: risk.Consume}, {Name: "chat-fanout-v1", Handle: broker.Consume}, {Name: "proposal-executor-v1", Handle: proposalStore.Consume}}}
 		if provider != nil {
 			dispatcher.Consumers = append(dispatcher.Consumers, events.Consumer{Name: "delay-detection-v1", Handle: proposalStore.ConsumeMessage})
 		}

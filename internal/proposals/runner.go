@@ -211,7 +211,7 @@ func (r *Runner) Process(ctx context.Context, service policy.Actor, run uuid.UUI
 				return err
 			}
 			var used, cost int64
-			if err := tx.QueryRow(ctx, `SELECT coalesce(sum(reserved_tokens),0),coalesce(sum(reserved_cost_microusd),0) FROM app.agent_runs WHERE workspace_id=$1 AND started_at>=clock_timestamp()-interval '24 hours'`, tx.WorkspaceID()).Scan(&used, &cost); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT coalesce(sum(reserved_tokens),0)+(SELECT coalesce(sum(tokens),0) FROM app.search_usage WHERE workspace_id=$1 AND created_at>=clock_timestamp()-interval '24 hours'),coalesce(sum(reserved_cost_microusd),0)+(SELECT coalesce(sum(cost_microusd),0) FROM app.search_usage WHERE workspace_id=$1 AND created_at>=clock_timestamp()-interval '24 hours') FROM app.agent_runs WHERE workspace_id=$1 AND started_at>=clock_timestamp()-interval '24 hours'`, tx.WorkspaceID()).Scan(&used, &cost); err != nil {
 				return err
 			}
 			if used+reserve > l.DailyTokens || cost+reserveCost > l.DailyCostMicroUSD {

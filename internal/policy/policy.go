@@ -23,6 +23,9 @@ type Resource struct {
 type Action string
 
 const (
+	SearchRead        Action = "search:read"
+	SearchAsk         Action = "search:ask"
+	SearchIndex       Action = "search:index"
 	MeetingRead       Action = "meeting:read"
 	MeetingWrite      Action = "meeting:write"
 	MeetingTranscribe Action = "meeting:transcribe"
@@ -75,7 +78,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 		return false
 	}
 	if actor.Role == Consumer {
-		return action == EventConsume || action == AuditAppend || action == RiskCompute || action == ChatFanout || action == ProposalExecute || action == AgentRun || action == MeetingTranscribe
+		return action == SearchIndex || action == EventConsume || action == AuditAppend || action == RiskCompute || action == ChatFanout || action == ProposalExecute || action == AgentRun || action == MeetingTranscribe
 	}
 	if actor.Role != Admin && actor.Role != Member && actor.Role != Viewer {
 		return false
@@ -83,7 +86,7 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 	switch action {
 	case SessionRead, SessionWrite:
 		return resource.OwnerID == "" || resource.OwnerID == actor.ID
-	case MeetingRead, ProposalRead, WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
+	case SearchRead, SearchAsk, MeetingRead, ProposalRead, WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
 		return true
 	case MemberInvite, AuditVerify:
 		return actor.Role == Admin

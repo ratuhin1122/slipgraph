@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { api, dataOrThrow, getSession, type Session } from './api/client';
 
+import { SearchPalette } from './Search';
 import { AuthContext, useAuth } from './auth-context';
 function clearTenantCache(cache: ReturnType<typeof useQueryClient>) { cache.removeQueries({ predicate: query => query.queryKey[0] !== 'identity-session' }); }
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -41,6 +42,6 @@ export function Shell({ children }: { children: ReactNode }) {
   async function createWorkspace() { const name = window.prompt('Name your new workspace'); if (!name) return; setBusy(true); try { accept(dataOrThrow(await api.POST('/auth/workspaces', { body: { name } }))); navigate('/projects'); } catch (error) { setError(error instanceof Error ? error.message : 'Could not create workspace'); } finally { setBusy(false); } }
   return <><header className="border-b border-slate-800 bg-slate-950"><div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-5 px-6 py-4"><Link to="/projects" className="mr-3 text-xl font-bold tracking-tight text-emerald-400">slipgraph</Link>
     <label className="flex items-center gap-2 text-sm"><span className="sr-only">Workspace</span><select aria-label="Workspace" className="max-w-56" value={session.workspace_id} disabled={busy} onChange={event => { const target = workspaces.data?.find(item => item.id === event.target.value); if (target) void switchWorkspace(target.switch_token); }}>{(workspaces.data ?? [{ id: session.workspace_id, name: session.workspace_name }]).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-    <Link to="/projects" className="nav-link">Projects</Link><Link to="/meetings">Meetings</Link><Link to="/proposals">Proposals</Link><Link to="/chat">Chat</Link><Link to="/members" className="nav-link">Members</Link><button className="nav-link" disabled={busy} onClick={() => { void createWorkspace(); }}>New workspace</button><span className="ml-auto text-sm text-slate-400">{session.user.display_name} · {session.role}</span><button className="secondary" disabled={busy} onClick={() => { void logout(); }}>Sign out</button>
+    <SearchPalette key={session.workspace_id} /><Link to="/projects" className="nav-link">Projects</Link><Link to="/meetings">Meetings</Link><Link to="/proposals">Proposals</Link><Link to="/chat">Chat</Link><Link to="/members" className="nav-link">Members</Link><button className="nav-link" disabled={busy} onClick={() => { void createWorkspace(); }}>New workspace</button><span className="ml-auto text-sm text-slate-400">{session.user.display_name} · {session.role}</span><button className="secondary" disabled={busy} onClick={() => { void logout(); }}>Sign out</button>
   </div></header>{error && <p className="mx-auto max-w-6xl p-4 text-rose-300" role="alert">{error}</p>}<div key={session.workspace_id}>{children}</div></>;
 }

@@ -10,9 +10,9 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Tenant isolation | [x] workspace_id comes ONLY from the authenticated session, never from body, query or URL. | Implemented | Session + verified membership; server-minted workspace creation and own-directory switch tickets. Two-workspace HTTP tests. |
 | Tenant isolation | [x] Never fetch by id alone: always `id AND workspace_id`. | Implemented | Generated GetObject query filters both IDs; integration tests. |
 | Tenant isolation | [x] App connects as a non-owner, non-superuser DB role. ENABLE and FORCE row level security on every tenant table. Set tenant with `SET LOCAL app.workspace_id` inside each transaction (never session-level SET; connection pools leak it). | Implemented | Bootstrap roles, runtime catalog checks, forced RLS, transaction helper, isolation tests. |
-| Tenant isolation | [ ] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Pending | No search implementation. |
-| Tenant isolation | [ ] Redis keys, websocket channels, cache entries, queue payloads and storage paths are all prefixed with the workspace id. Jobs re-verify tenant and permissions when they run. | Partial | Current query caches include workspace IDs; worker re-verifies service sessions and policy each batch. Workspace-prefixed Redis topics, leases, presence and flood budgets; chat fanout rechecks tenant policy. Storage remains gated. |
-| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal/brief/run/impact/meeting endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation, delay detection, create-plan/transcription/extraction jobs and hostile queued references. CI runs both suites without skips. |
+| Tenant isolation | [x] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Implemented | Explicit predicates inside vector/FTS branches, live hash/parent joins, FORCE RLS, per-hit policy and two-workspace query/job tests. |
+| Tenant isolation | [ ] Redis keys, websocket channels, cache entries, queue payloads and storage paths are all prefixed with the workspace id. Jobs re-verify tenant and permissions when they run. | Partial | Current query caches include workspace IDs; worker re-verifies service sessions and policy each batch. Workspace-prefixed Redis topics, leases, presence and flood budgets; chat fanout rechecks tenant policy. Private storage and search are tenant scoped. |
+| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal/brief/run/impact/meeting/search/ask endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation, delay detection, create-plan/transcription/extraction jobs and hostile queued references. CI runs both suites without skips. |
 | AI / agent safety | [x] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Implemented | Escaped delimited data blocks; fixed system instructions; hostile chat fixture cannot mutate tasks or approve proposals. |
 | AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools or write dependencies; strict local schema and typed executors; generation creates only pending domain proposals plus code-controlled hypothetical assessments and immutable notices; no model tools or direct task mutation. |
 | AI / agent safety | [x] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Implemented | Locked transaction checks status, expiry, review/approval hashes and execution marker; adversarial and concurrent execution tests. |
@@ -63,8 +63,7 @@ The migration version table remains inaccessible infrastructure metadata.
   independent storage when external tamper evidence is required.
 - Redis: workspace-prefixed ephemeral IDs, TTL presence and shared flood/connection
   budgets. Authorized notifications carry no text. Reconnect reloads REST state;
-  pub/sub is transient and duplicate invalidations are harmless. Storage and external
-  job brokers remain gated.
+  pub/sub is transient and duplicate invalidations are harmless. External job brokers remain gated.
 - External content/LLMs: providers default disabled. Fixed HTTPS provider endpoints
   have no redirects or model tools. Worker-only keys and explicit price ceilings
   are required; output is validated data and cannot create executor authority.
@@ -77,7 +76,7 @@ The migration version table remains inaccessible infrastructure metadata.
 ## Scope gate
 
 Other agent features, OAuth, webhooks, arbitrary outbound fetches,
-River jobs, vector search, rich HTML, and public password-reset email delivery remain
+River jobs, rich HTML, and public password-reset email delivery remain
 absent. Pending checklist controls must be satisfied before exposing these features.
 Invite links are manually shared; comments are explicitly a placeholder. Risk is a
 calendar-based deterministic forecast and never automatically mutates downstream tasks.
@@ -140,3 +139,23 @@ configuration, runtime code or the database remain trusted deployment boundaries
   titles, transcripts, speaker labels, evidence and extracted suggestions.
 - Mock transcription is labeled as a fixture. Real-provider calls are opt-in and send
   recording content to the configured provider. No live keys or calls are needed in CI.
+
+## Search security checklist
+
+| Rule | Status | Evidence |
+| --- | --- | --- |
+| FORCE RLS, explicit workspace predicates inside both hybrid branches, composite keys and grants | Implemented | embeddings/jobs/requests/usage; security-invoker view; real two-workspace tests |
+| Per-object policy and live parent/deletion visibility before retrieval and read | Implemented | fail-closed type mapping; hash-bound index joins and cached result revalidation |
+| Index workers reverify service scope and canonical source content | Implemented | leased generation/hash commits, idempotent event receipts and unchanged-content skip |
+| Questions and retrieved content remain untrusted data; no tools | Implemented | escaped data blocks, strict answer schema and hostile-content fixture |
+| Citation IDs must exist in the authorized retrieved set | Implemented | foreign/fabricated/duplicate/empty citation tests; source change invalidates answer |
+| Own-user job lookup, CSRF, bounded requests, shared quotas and deadlines | Implemented | scope from sessions only, 30/minute requests, shared reserved token/cost ledger |
+| Safe snippets, generated internal links and no raw model HTML | Implemented | DOMPurify plus React text; frontend inert XSS/citation test |
+
+Indexing and Ask intentionally send bounded content to the selected real provider
+when enabled. Keys stay worker-only; logs contain only usage metadata. HNSW is
+approximate and cannot guarantee recall. Citation validation does not establish
+truth or defeat all prompt injection; read-only output has no business-write
+capability. Soft-deleted content is excluded immediately through live joins even
+before physical index cleanup. Retention/administrative database access remains
+a deployment responsibility. Search starts disabled and mock mode is labeled.

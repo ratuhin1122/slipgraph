@@ -1,12 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, dataOrThrow, taskInput, type Project, type Task, type TaskImpact } from './api/client';
 import { useSession } from './auth-context';
 import { Kanban, TaskTable, Timeline } from './TaskViews';
 import { ImpactPanel } from './AgentFeatures';
 import { TaskDrawer } from './TaskDrawer';
 export function ProjectPage() {
+  const location = useLocation();
+  return <ProjectContent key={location.key} />;
+}
+function ProjectContent() {
   const [searchParams] = useSearchParams(); const { projectId = '' } = useParams(); const session = useSession(); const cache = useQueryClient(); const navigate = useNavigate();
   const [view, setView] = useState<'kanban' | 'table' | 'timeline'>(() => searchParams.has('impact') ? 'timeline' : 'kanban'); const [search, setSearch] = useState(''); const [drawer, setDrawer] = useState<string | null>(() => searchParams.get('task')); const [error, setError] = useState(''); const [editing, setEditing] = useState<Project | null>(null); const [busy, setBusy] = useState(false);
   const key = [session.workspace_id, 'project', projectId]; const riskKey = [session.workspace_id, 'risk', projectId]; const membersKey = [session.workspace_id, 'members'];

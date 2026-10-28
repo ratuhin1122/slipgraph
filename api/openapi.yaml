@@ -1,13 +1,92 @@
 openapi: 3.0.3
 info:
   title: Slipgraph API
-  version: 0.7.0
+  version: 0.8.0
   description: Workspace identity is resolved from authenticated sessions and verified membership, never caller-selected scope.
 servers:
   - url: /api
 security:
   - sessionCookie: []
 paths:
+  /search:
+    post:
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      operationId: requestSearch
+      description: Queue worker-only hybrid retrieval. Poll the returned request ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchInput'
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '400':
+          description: Request rejected
+        '401':
+          description: Request rejected
+        '403':
+          description: Request rejected
+        '429':
+          description: Rate limited
+        '503':
+          description: Provider disabled
+  /ask:
+    post:
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      operationId: requestAnswer
+      description: Queue worker-only hybrid retrieval. Poll the returned request ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchInput'
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '400':
+          description: Request rejected
+        '401':
+          description: Request rejected
+        '403':
+          description: Request rejected
+        '429':
+          description: Rate limited
+        '503':
+          description: Provider disabled
+  /search/{requestId}:
+    get:
+      operationId: getSearchResult
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Current own-user search result, reauthorized against live objects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '401':
+          description: Authentication required
+        '404':
+          description: Unknown or inaccessible request
   /healthz:
     get:
       operationId: getHealth
@@ -2039,6 +2118,23 @@ paths:
         - sessionCookie: []
           csrfToken: []
   /messages/{messageId}:
+    get:
+      operationId: getMessage
+      parameters:
+        - in: path
+          name: messageId
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Authorized live message for a deep link
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChatMessage'}
+        '401':
+          description: Authentication required
+        '404':
+          description: Unknown or inaccessible message
     put:
       operationId: editMessage
       responses:
@@ -3498,6 +3594,46 @@ components:
       name: X-CSRF-Token
       description: Obtain a session-bound token from GET /auth/csrf. Required for every unsafe request, including signup/login.
   schemas:
+    SearchInput:
+      type: object
+      additionalProperties: false
+      required: [query]
+      properties:
+        query: {type: string, minLength: 1, maxLength: 500}
+    SearchHit:
+      type: object
+      additionalProperties: false
+      required: [object_id, type, title, snippet, url, content_hash]
+      properties:
+        object_id: {type: string, format: uuid}
+        type: {type: string, enum: [task, message, transcript_segment]}
+        title: {type: string}
+        snippet: {type: string}
+        url: {type: string}
+        content_hash: {type: string}
+    SearchClaim:
+      type: object
+      additionalProperties: false
+      required: [text, object_ids]
+      properties:
+        text: {type: string}
+        object_ids:
+          type: array
+          items: {type: string, format: uuid}
+    SearchResult:
+      type: object
+      additionalProperties: false
+      required: [id, status, items, claims, mock]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, enum: [queued, running, complete, failed]}
+        mock: {type: boolean}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/SearchHit'}
+        claims:
+          type: array
+          items: {$ref: '#/components/schemas/SearchClaim'}
     Health:
       type: object
       additionalProperties: false

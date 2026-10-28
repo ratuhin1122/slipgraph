@@ -18,6 +18,24 @@ import (
 )
 
 type Store struct{ Auth *auth.Service }
+
+// GetMessage resolves deep links through the same tenant/policy boundary as lists.
+func (s *Store) GetMessage(ctx context.Context, session auth.Session, id uuid.UUID) (Message, error) {
+	var out Message
+	e := s.Auth.InTenant(ctx, session, policy.ChannelRead, "", func(tx database.TenantTx, a policy.Actor) error {
+		var e error
+		out, e = message(ctx, tx, id)
+		if e != nil {
+			return e
+		}
+		if out.Deleted {
+			return auth.ErrNotFound
+		}
+		return enrich(ctx, tx, &out)
+	})
+	return out, e
+}
+
 type Channel struct {
 	ID      uuid.UUID `json:"id"`
 	Name    string    `json:"name"`

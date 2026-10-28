@@ -49,11 +49,10 @@ budgets, and expiring presence. Message bodies remain in Postgres.
    consumer executes approved changes atomically. The brief endpoint queues generation;
    chat creation queues delay detection without model calls in an HTTP or outbox transaction.
 7. **Worker-only slow work.** Dependency calculations and audit delivery run in the
-   worker. LLM calls and transcription use authorized, bounded worker jobs. Embeddings
-   remain gated. Redis chat fanout runs as an authorized outbox consumer.
+   worker. LLM calls and transcription use authorized, bounded worker jobs. Embedding and cited-answer calls use authorized search worker jobs. Redis chat fanout runs as an authorized outbox consumer.
    River infrastructure remains disabled and gated.
 8. **OpenAPI contract.** `api/openapi.yaml` defines health, authentication, membership,
-   projects, tasks, dependencies, risk reads, chat, presence, websocket frames, proposal review, agent runs, briefs, impact scenarios, meetings, private recordings and transcript evidence. oapi-codegen produces Go interfaces
+   projects, tasks, dependencies, risk reads, chat, presence, websocket frames, proposal review, agent runs, briefs, impact scenarios, meetings, private recordings, transcript evidence, hybrid search and cited answers. oapi-codegen produces Go interfaces
    and DTOs; openapi-typescript and openapi-fetch supply the strict TypeScript client.
    `make gen` also generates sqlc bindings. Handlers reject unknown JSON fields,
    missing required fields, invalid nulls, trailing input, and oversized bodies.
@@ -163,7 +162,7 @@ idempotent retries; edits/deletes require the current version. Deleted messages
 become content-free tombstones so replies remain accessible. Mentions resolve
 only tenant member objects. Task URIs resolve active tasks and projects in the
 same tenant before inserting links. Events contain IDs, versions and byte counts,
-never message text; future search consumers must re-fetch under tenant policy.
+never message text; search consumers re-fetch canonical content under tenant policy.
 
 WebSockets use coder/websocket, exact configured Origin and secure session cookies.
 URL credentials and caller-selected scope are rejected. Every application frame,
@@ -357,3 +356,20 @@ not an untrusted URL time. Search and pagination apply tenant predicates in SQL.
 
 Both providers default disabled. See [meeting configuration](MEETINGS.md) for offline
 mock behavior, local storage, format/timestamp limitations and explicit real-provider setup.
+
+## Search and retrieval
+
+Search uses a FORCE-RLS embedding table, a security-invoker live document view,
+HNSW cosine candidates and GIN full-text candidates. Both SQL branches carry an
+explicit workspace predicate; live objects, parents and content hashes suppress
+stale/deleted content before per-object central policy checks. Outbox consumers
+queue bounded worker embedding jobs; generation/hash checks make retries safe.
+
+Search and Ask requests are own-user tenant jobs, never caller-selected scope.
+Workers reverify service and requester permissions, share agent token/cost budgets,
+and keep network calls outside transactions. Ask receives only bounded untrusted
+snippets and returns strict structured claims. Every cited ID must exist in the
+retrieved set. Completion and reads recheck source visibility/hashes; changed
+sources invalidate cached answers. The Ctrl+K palette renders text and code-built
+internal links. See [SEARCH.md](SEARCH.md) for limits, configuration and benchmark
+semantics. Default providers remain disabled; mock behavior is explicitly labeled.
