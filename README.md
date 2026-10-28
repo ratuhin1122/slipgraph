@@ -154,3 +154,38 @@ credentials are passed to that command on stdin and never printed.
 Run `python scripts/run_smoke.py` against a mock-enabled stack for all production
 smoke flows and the final audit command. The runner reuses four synthetic accounts
 with fresh workspaces so it respects signup limits; credentials stay in memory.
+
+
+## Optional GitHub integration
+
+Create a GitHub OAuth app with callback
+`PUBLIC_ORIGIN/api/integrations/github/callback`. Configure `GITHUB_CLIENT_ID`,
+`GITHUB_CLIENT_SECRET`, and an independent random 32-byte `GITHUB_ENCRYPTION_KEY`
+encoded as 64 hex characters. Secret-file alternatives are available when launching
+the binaries; Compose's example uses environment interpolation, so production should
+supply mounted managed secrets rather than plaintext shell history or committed files.
+Keep this key separate from AUTH_KEY; back it up securely. For rotation, disconnect
+connections first, deploy the new key, then reconnect/configure each workspace.
+Old encrypted tokens/routes become unreadable with a changed key.
+
+Open **Integrations** as a workspace admin, connect, select one public repository and
+signal channel, then copy the one-time URL/secret into that repository's GitHub
+webhook settings (`application/json`, pull request, issue and check run events).
+No OAuth scopes are requested. If an old broader OAuth grant exists, revoke it in
+GitHub and reconnect. Private repositories and repository replacement are not
+supported in this first adapter. Configuring again rotates webhook credentials;
+update GitHub accordingly. Disconnect revokes local routing and destroys local
+credentials; revoke the remote OAuth application grant in GitHub separately.
+
+Map issue numbers to tasks in settings, or put a task UUID in a PR branch name.
+PR bodies such as `closes #12` follow those issue links. Failing checks, blocked PRs
+and stale known PRs post a scenario into chat and the existing human-reviewed risk
+workflow. Enable a worker model provider to generate proposals; no task changes
+without approval. The configured delay estimate is not a measured slip. Stale checks
+use the last received PR update, so ensure GitHub deliveries are healthy. The event log
+shows receipt/processing metadata without raw payloads or credentials.
+
+GitHub signs the body, not delivery headers/timestamps. Slipgraph deduplicates both
+delivery ID and body hash and bounds signed event timestamps to seven days. Historical
+redeliveries outside that window are rejected. Tests use fake OAuth responses and
+signed fixtures; no live GitHub credentials are needed or used in CI.

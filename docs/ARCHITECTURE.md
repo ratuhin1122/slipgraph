@@ -2,7 +2,7 @@
 
 Slipgraph is a multi-tenant team workspace with authenticated identity, projects,
 tasks, chat, realtime presence, deterministic dependency analysis, and transactional audit delivery. Chat delay analysis, brief planning, and meeting extraction use human-reviewed proposals.
-External integrations remain disabled. Providers are opt-in; an offline mock supports the demo.
+GitHub is opt-in; other external integrations remain disabled. Providers are opt-in; an offline mock supports the demo.
 
 ## Runtime and boundaries
 
@@ -22,7 +22,7 @@ budgets, and expiring presence. Message bodies remain in Postgres.
    is resolved from an authenticated session and verified membership. The approved
    global identity exception is described below; it is not a business-data escape.
 2. **Generic objects.** Workspaces, tenant member projections, projects, tasks,
-   channels, messages, briefs, meetings, transcript segments, decisions, agent runs, proposals, and risk assessments extend `app.objects` through `(workspace_id, id)` foreign keys.
+   channels, messages, briefs, meetings, transcript segments, decisions, agent runs, proposals, risk assessments, GitHub connections/events and remote PR/issue objects extend `app.objects` through `(workspace_id, id)` foreign keys.
    Application IDs are UUIDv7. Mutable objects use versions and soft deletion.
 3. **Generic links.** `app.links` stores task-to-project `belongs_to`, task-to-member
    `owned_by`, task-to-blocker `blocked_by`, assessment-to-project relationships, message-to-channel `belongs_to`,
@@ -401,3 +401,65 @@ pinning, TLS hostname verification and no environment proxy or redirects.
 The generic, workspace-bound webhook verifier has atomic RLS replay receipts but
 exposes no ingress endpoint or vendor adapter. These gated integration boundaries
 and remaining deployment responsibilities are detailed in THREAT_MODEL.md.
+
+
+## GitHub integration
+
+GitHub OAuth is an explicit admin action. It requests **no scopes**, so this
+first adapter supports public repositories only. OAuth state is 256-bit random,
+hashed in the tenant row, single-use, expires in ten minutes and is bound to the
+exact initiating human session. S256 PKCE is mandatory. The verifier and access
+credential use a separate API-only configured AES-256-GCM key with random nonces and
+workspace/connection/purpose authenticated data. A pre-existing broader GitHub
+OAuth grant is rejected; revoke that grant on GitHub before retrying. Callback
+exchange uses fixed endpoints and the guarded HTTP client. Disconnect erases local
+credentials and webhook routing; remote grant revocation is a separate GitHub action.
+
+Connections, durable ingress and remote PR/issue objects have ENABLE/FORCE RLS,
+composite keys and explicit runtime grants. Admin-only settings reveal no stored
+credentials. Configuring one public repository and a workspace channel returns a
+one-time private callback URL and independent webhook secret for manual installation
+in repository settings. Saving rotates both. Repository identity is pinned to the
+server-verified numeric ID and full name; replacing that repository is deliberately
+unsupported by this initial adapter. An opaque AES-GCM routing capability binds
+workspace, connection, random nonce and an authenticated consumer session. A route
+is never interpreted as a workspace UUID. Auth re-verifies the bound service session
+before opening its tenant transaction; the stored route digest must still match.
+
+GitHub's actual signature is HMAC-SHA256 of the raw body, compared in constant time.
+GitHub does not sign a delivery timestamp or the delivery header. Consequently the
+adapter persistently deduplicates **both** delivery UUID and signed-body SHA-256,
+including concurrent requests and changed delivery headers. Non-ping payloads require
+a signed PR/issue update or check-run timestamp within seven days (30 seconds future
+skew). Ping uses authenticated content plus permanent deduplication, not a fabricated
+signed header. Old redeliveries need a fresh GitHub event; the freshness policy can
+intentionally reject delayed historical deliveries. Ingress is size/rate bounded and
+performs no model/network work. Event logs contain type, receipt time and outcome only;
+only modeled evidence is retained (ping configuration is discarded); processed payloads are cleared. Audit snapshots contain IDs and fixed metadata.
+NGINX disables URI-bearing error logs for the webhook and OAuth callback locations;
+structured API status/request-ID logs remain available without paths or query strings.
+
+The worker rechecks live connector-admin membership and per-action policy. Issue-to-task
+mapping is explicit; PR `closes #12` follows generic links, while task UUIDs in branch
+names resolve only active visible tasks/projects. Failing check runs, blocked PRs and
+known open PRs stale since their last received update create bounded, idempotent chat
+signals with task/source links. The configured delay is a labeled scenario estimate,
+not a measured duration. Task dates do not change. The existing message-created
+consumer treats external text as untrusted, queues delay detection, computes deterministic
+risk and generates pending proposals; normal human approval/executor checks still apply.
+Staleness relies on received events, not periodic remote polling, so missing webhook
+updates may produce a stale scenario. At most one signal per remote item per day is
+emitted. A disabled model provider leaves signals in chat without agent proposals.
+
+Tests include OAuth state/session/replay/PKCE, ciphertext swapping, actual GitHub
+signature semantics, concurrent/body-hash replay, signed timestamp freshness,
+foreign routing/references/jobs, pending-only risk flow, hostile external titles,
+admin/CSRF boundaries, inert settings UI, and secret-free logs/audit. All new tables
+and endpoints join the OpenAPI-driven and unfiltered-RLS gates.
+
+Protocol references: [GitHub OAuth and S256 PKCE](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps),
+[webhook signature verification](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries),
+and [event payloads and check-run repository availability](https://docs.github.com/en/webhooks/webhook-events-and-payloads).
+
+The worker receives no GitHub OAuth client secret, token decryption key or HTTP client.
+It only processes authenticated ingress already persisted under tenant RLS.

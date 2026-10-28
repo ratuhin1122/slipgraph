@@ -127,3 +127,6 @@ func LoadAuthKey() ([]byte, error) {
 	return key, nil
 }
 func PublicOrigin() string { return env("PUBLIC_ORIGIN", "http://localhost:5173") }
+
+// Secret reads an environment value or a confined secret file without logging it.
+func Secret(key, fileKey string) (string, error) { return secret(key, fileKey) }

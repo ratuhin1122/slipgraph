@@ -3595,6 +3595,90 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /integrations/github:
+    get:
+      operationId: getGitHub
+      responses:
+        '200':
+          description: Admin connection status without credentials
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GitHubStatus'}
+    post:
+      operationId: configureGitHub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GitHubSetup'}
+      responses:
+        '200':
+          description: One-time private webhook setup instructions; configure manually in GitHub
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GitHubHook'}
+    delete:
+      operationId: disconnectGitHub
+      responses:
+        '204': {description: Local credentials destroyed and route revoked}
+  /integrations/github/connect:
+    post:
+      operationId: connectGitHub
+      responses:
+        '200':
+          description: State and S256 PKCE authorization URL with no requested scopes
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [url]
+                properties:
+                  url: {type: string}
+  /integrations/github/callback:
+    get:
+      operationId: completeGitHub
+      parameters:
+        - {name: code, in: query, required: true, schema: {type: string, maxLength: 1024}}
+        - {name: state, in: query, required: true, schema: {type: string, minLength: 43, maxLength: 43}}
+      responses:
+        '303': {description: Redirect to integration settings without credentials in URL}
+  /integrations/github/events:
+    get:
+      operationId: listGitHubEvents
+      responses:
+        '200':
+          description: Bounded metadata-only event log
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/GitHubLog'}
+  /integrations/github/links:
+    post:
+      operationId: mapGitHubIssue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [issue_number, task_id]
+              properties:
+                issue_number: {type: integer, format: int64, minimum: 1}
+                task_id: {type: string}
+      responses:
+        '204': {description: Issue-to-task link created in the current repository}
+  /hooks/github/{routingToken}:
+    post:
+      operationId: receiveGitHub
+      security: []
+      description: GitHub HMAC-authenticated ingress; opaque authenticated service-session route, not browser CSRF. Delivery ID plus signed-body digest are single-use. Signed payload timestamps bounded to seven days.
+      parameters:
+        - {name: routingToken, in: path, required: true, schema: {type: string, maxLength: 1000}}
+      responses:
+        '202': {description: Verified delivery durably queued}
 components:
   securitySchemes:
     sessionCookie:
@@ -5154,3 +5238,11 @@ components:
         file:
           type: string
           format: binary
+
+    GitHubStatus: {"type": "object", "additionalProperties": false, "required": ["enabled", "connected", "repository", "channel_id", "stale_days", "delay_days"], "properties": {"enabled": {"type": "boolean"}, "connected": {"type": "boolean"}, "repository": {"type": "string"}, "channel_id": {"type": "string", "nullable": true}, "stale_days": {"type": "integer"}, "delay_days": {"type": "integer"}}}
+
+    GitHubSetup: {"type": "object", "additionalProperties": false, "required": ["repository", "channel_id", "stale_days", "delay_days"], "properties": {"repository": {"type": "string", "maxLength": 201}, "channel_id": {"type": "string"}, "stale_days": {"type": "integer", "minimum": 1, "maximum": 90}, "delay_days": {"type": "integer", "minimum": 1, "maximum": 365}}}
+
+    GitHubHook: {"type": "object", "additionalProperties": false, "required": ["url", "secret"], "properties": {"url": {"type": "string"}, "secret": {"type": "string"}}}
+
+    GitHubLog: {"type": "object", "additionalProperties": false, "required": ["id", "event_type", "outcome", "received_at"], "properties": {"id": {"type": "string"}, "event_type": {"type": "string"}, "outcome": {"type": "string"}, "received_at": {"type": "string", "format": "date-time"}}}

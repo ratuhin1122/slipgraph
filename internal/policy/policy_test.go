@@ -119,3 +119,18 @@ func TestHandlerPreflightDoesNotGrantOwnership(t *testing.T) {
 		t.Fatal("preflight failed open")
 	}
 }
+
+func TestIntegrationMatrix(t *testing.T) {
+	for _, role := range []Role{Admin, Member, Viewer, Consumer, "unknown"} {
+		for _, action := range []Action{IntegrationRead, IntegrationManage, IntegrationReceive} {
+			a := Actor{ID: "me", WorkspaceID: "a", Role: role}
+			want := role == Admin && action != IntegrationReceive || role == Consumer && action == IntegrationReceive
+			if Can(context.Background(), a, action, Resource{WorkspaceID: "a"}) != want {
+				t.Fatalf("%s %s", role, action)
+			}
+			if Can(context.Background(), a, action, Resource{WorkspaceID: "b"}) {
+				t.Fatal("foreign integration permission")
+			}
+		}
+	}
+}

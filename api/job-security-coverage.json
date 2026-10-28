@@ -22,5 +22,7 @@
   "runner/meetings",
   "runner/search-index",
   "runner/search",
-  "runner/ask"
+  "runner/ask",
+  "runner/github-event",
+  "runner/github-stale"
 ]

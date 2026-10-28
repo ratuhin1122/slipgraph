@@ -23,6 +23,9 @@ func TestGatedFeaturesHaveNoHTTPIngress(t *testing.T) {
 		t.Fatal(e)
 	}
 	for _, op := range ops {
+		if strings.HasPrefix(op.Path, "/hooks/") && op.ID != "receiveGitHub" {
+			t.Errorf("unreviewed vendor webhook ingress: %s", op.Path)
+		}
 		for _, prefix := range []string{"/oauth", "/webhooks", "/exports", "/auth/password-reset", "/auth/forgot-password"} {
 			if strings.HasPrefix(op.Path, prefix) {
 				t.Errorf("gated feature needs its threat controls and tests before exposure: %s", op.Path)

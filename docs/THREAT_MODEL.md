@@ -12,7 +12,7 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Tenant isolation | [x] App connects as a non-owner, non-superuser DB role. ENABLE and FORCE row level security on every tenant table. Set tenant with `SET LOCAL app.workspace_id` inside each transaction (never session-level SET; connection pools leak it). | Implemented | `TestTenantIsolationAndRoleSafety`, `TestEveryTenantTableRLSWithoutApplicationFilters`, `TestProductionSQLFiltersRemainIntact`. |
 | Tenant isolation | [x] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Implemented | Both SQL branches filter scope, live hashes/parents and per-hit policy are checked. `TestSearchIsolationAndCitations`, `TestOpenAPITenantMatrix/requestSearch` and `requestAnswer`, normal and filter-removal builds. |
 | Tenant isolation | [ ] Redis keys, websocket channels, cache entries, queue payloads and storage paths are all prefixed with the workspace id. Jobs re-verify tenant and permissions when they run. | Partial | Current query caches include workspace IDs; worker re-verifies service sessions and policy each batch. Workspace-prefixed Redis topics, leases, presence and flood budgets; chat fanout rechecks tenant policy. Private storage and search are tenant scoped. |
-| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | `TestEveryOpenAPIOperationHasSecurityCase`, `TestRegisteredRoutesMatchOpenAPI`, `TestOpenAPITenantMatrix` (60 operations), `TestEveryWorkerJobRejectsForeignScope`, `TestRegisteredJobsHaveExecutedSecurityCases`, and `TestChatRealtimeIsolation`. CI repeats the complete integration suite with business SQL filters removed. |
+| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | `TestEveryOpenAPIOperationHasSecurityCase`, `TestRegisteredRoutesMatchOpenAPI`, `TestOpenAPITenantMatrix` (68 operations), `TestEveryWorkerJobRejectsForeignScope`, `TestRegisteredJobsHaveExecutedSecurityCases`, and `TestChatRealtimeIsolation`. CI repeats the complete integration suite with business SQL filters removed. |
 | AI / agent safety | [x] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Implemented | Escaped data blocks and fixed instructions. `TestPromptAndSchemaBoundary`, `TestAgentSafetyFoundation`, `TestSignatureWorkflows`, `TestMeetingsSecurityAndPipeline`, `TestMockAnswerTreatsInjectionAsData`. |
 | AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools/write dependencies; schema-validated pending proposals only, with read-only cited answers separate. `TestLLMHasNoDomainWriteDependencies`, `TestAgentSafetyFoundation`, `TestCitationsFailClosed`. |
 | AI / agent safety | [x] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Implemented | Locked status/expiry/hash/permission/idempotency checks. `TestAgentSafetyFoundation`, `TestEveryWorkerJobRejectsForeignScope/executor`, `TestOpenAPITenantMatrix/approveProposal` and `rejectProposal`. |
@@ -26,8 +26,8 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 | Authorization | [x] Every route, websocket message and job passes through policy.Can(). | Implemented | Role/action preflight rejects unknown actions; actual resource policy still runs in transactions. `TestDenyByDefault`, policy matrix tests, `TestEveryWorkerJobRejectsForeignScope`, `TestChatRealtimeIsolation`. |
 | Authorization | [x] Request DTOs use explicit allow-lists of updatable fields (no mass assignment; users can never set their own role or workspace_id). | Implemented | Generated DTOs and strict decoding. `TestIdentitySecurity`, `TestOpenAPITenantMatrix`, `TestHandlerPreflightDoesNotGrantOwnership`. |
 | WebSockets | [x] Validate Origin. Authenticate on connect, then authorize every subscribe and every inbound message. Channel names include workspace id. Set read size limits, per-user connection caps and idle timeouts. | Implemented | `TestChatRealtimeIsolation` covers cross-site handshakes, foreign subscribe/unsubscribe/typing, flood/size/connection limits and revocation. `TestFramesRejectCallerSelectedWorkspace` covers forged heartbeat/scope fields. |
-| Integrations | [ ] OAuth uses state + PKCE. Third-party tokens encrypted at rest (AES-GCM, key from env) and never logged. Minimal scopes. | Pending | No OAuth ingress or stored tokens; `TestGatedFeaturesHaveNoHTTPIngress` gates exposure. Vendor state/PKCE/encryption tests are required with the feature. |
-| Integrations | [ ] Webhooks: verify HMAC signature with constant-time compare, check timestamp and reject replays (store delivery ids). | Partial | Generic workspace-bound HMAC/timestamp verifier and atomic RLS replay receipts are implemented: `TestWebhookSignatureBindingAndExpiry`, `TestWebhookReplayAndTenantScope`. Vendor-specific ingress is still absent and gated. |
+| Integrations | [x] OAuth uses state + PKCE. Third-party tokens encrypted at rest (AES-GCM, key from env) and never logged. Minimal scopes. | Implemented for GitHub | Session-bound single-use state, S256, tenant/purpose-bound AES-GCM, no requested scopes; GitHub tests below. Other vendors remain gated. |
+| Integrations | [x] Webhooks: verify HMAC signature with constant-time compare, check timestamp and reject replays (store delivery ids). | Implemented for GitHub with vendor limitation | Exact body HMAC, delivery plus body-digest deduplication, signed event timestamp freshness. GitHub does not sign a delivery timestamp header; see GitHub checklist. Generic verifier remains separate. |
 | Integrations | [x] SSRF guard on any server-side fetch: block private, loopback, link-local and metadata IP ranges, re-check after redirects and DNS resolution. | Implemented | All real provider defaults use `pkg/safehttp`: public-IP allow checks, pinned DNS dials, proxy disabled, HTTPS/443 only, redirects refused. `TestSSRFBlockedRanges`, `TestSSRFDNSPinningAndMixedAnswers`, `TestSSRFRedirectsAndProtocols`. Arbitrary fetch features remain absent. |
 | Audit | [x] Append-only audit_log: app role has INSERT only (REVOKE UPDATE, DELETE, TRUNCATE) plus a trigger that raises on UPDATE/DELETE. Each row stores a hash of the previous row. | Implemented | `TestTenantIsolationAndRoleSafety`, `TestIdentitySecurity`; authenticated `slipgraph audit verify` runs in CI after smoke tests via `scripts/audit_ci.py`. |
 | Audit | [ ] Log: logins, role changes, invites, exports, proposals created/approved/rejected/ executed, every agent action, with actor (human or agent), workspace, before/after. | Partial | Current identity/project/task/dependency/risk/chat events include actor kind, workspace and metadata before/after. Proposal transitions, agent completion and executed task changes write immediate audit rows with actor kind and metadata before/after; exports remain gated. |
@@ -75,7 +75,7 @@ The migration version table remains inaccessible infrastructure metadata.
 
 ## Scope gate
 
-Other agent features, OAuth, webhooks, arbitrary outbound fetches,
+Other agent features, non-GitHub OAuth/webhooks, arbitrary outbound fetches,
 River jobs, rich HTML, and public password-reset email delivery remain
 absent. Pending checklist controls must be satisfied before exposing these features.
 Invite links are manually shared; comments are explicitly a placeholder. Risk is a
@@ -177,7 +177,7 @@ a deployment responsibility. Search starts disabled and mock mode is labeled.
 | Browser reuses a nonce or attacker chooses it | API crypto/rand nonce required by an internal proxy subrequest; HTML fails closed, has no-store and conditional caching disabled | `scripts/security_smoke.py` | Implemented |
 | Reverse proxy weakens a private response | Preserve upstream CSP, including media sandbox; enforce additional edge headers | `scripts/security_smoke.py` | Implemented |
 | Whitelisted log keys carry arbitrary credentials | Validate UUID, method, service and numeric attribute types; redact everything else including nested values | `TestAllowedKeysCannotSmuggleSecretValues`, `TestRedaction` | Implemented |
-| Signed webhook is replayed concurrently or in another workspace | Bind workspace/provider/delivery/time/body; constant-time MAC, short freshness window and atomic INSERT-only tenant receipt | `TestWebhookSignatureBindingAndExpiry`, `TestWebhookReplayAndTenantScope` | Primitive implemented; ingress gated |
+| Signed webhook is replayed concurrently or in another workspace | Bind workspace/provider/delivery/time/body; constant-time MAC, short freshness window and atomic INSERT-only tenant receipt | `TestWebhookSignatureBindingAndExpiry`, `TestWebhookReplayAndTenantScope` | Generic primitive plus separate GitHub adapter; other ingress gated |
 | DNS rebinding, private/mapped IP or environment proxy bypass | Validate every resolved address, pin IP at dial, preserve TLS hostname validation, disable proxies, check every redirect/new dial | `TestSSRFBlockedRanges`, `TestSSRFDNSPinningAndMixedAnswers`, `TestSSRFRedirectsAndProtocols` | Implemented for current outbound HTTP defaults |
 
 The OpenAPI inventory is `api/security-coverage.json`; the job inventory is
@@ -202,6 +202,7 @@ joins and integrity constraints remain active.
 | REST and WebSocket handshake | Resolved opaque cookie session plus verified live membership | `auth.HTTP.Require`, `auth.Service.InTenant`; request workspace query keys are rejected, never read as scope |
 | Workspace creation | Server-minted UUID | Signup/create-workspace input contains only allowed profile/name fields |
 | Workspace switching / invite acceptance | Own-directory single-use ticket or hashed invite bound to authenticated email | `TestIdentitySecurity`; no body/URL workspace identity |
+| GitHub webhook routing | AES-GCM capability authenticates the exact consumer session; auth verifies its workspace and live credential before business access | `BoundConsumer`, route digest, per-connection HMAC, GitHub isolation tests |
 | Worker and consumers | Verified service session plus persisted requester/approver membership | `AuthorizeConsumer`, `JobMember`, `TestEveryWorkerJobRejectsForeignScope` |
 | SQL, quotas, Redis and files | TenantTx.WorkspaceID or verified session/actor scope | Forced RLS, composite keys, prefixed broker/storage keys; catalog and storage tests |
 | Audit CLI | Resolved admin session from stdin/environment, then central policy | No workspace argument; `scripts/audit_ci.py` |
@@ -209,11 +210,12 @@ joins and integrity constraints remain active.
 
 ## Remaining gaps and deployment responsibilities
 
-- **OAuth and vendor webhook ingress remain disabled.** The generic verifier is
-  not a GitHub/Slack/vendor protocol adapter. Enabling ingress still requires the
-  vendor's exact signature contract, installation-to-workspace mapping, delivery
-  policy/rate limits, and endpoint tests. OAuth still requires state/PKCE, minimal
-  scopes and encrypted third-party token storage. There are no stored OAuth tokens.
+- **Only GitHub ingress is implemented, and is disabled until configured.** Other
+  vendor protocols remain gated. The generic verifier is not a vendor adapter.
+  GitHub supports public repositories only with no requested scopes; broader
+  existing grants are rejected. Remote grant revocation and webhook installation
+  are manual actions. GitHub has no signed delivery timestamp; see the exact
+  freshness/deduplication boundary below.
 - **Public password-reset email, exports and rich HTML are disabled.** Their
   delivery, authorization, audit and abuse controls must be implemented with those
   features; a foundation test is not a claim that absent delivery works.
@@ -229,3 +231,28 @@ joins and integrity constraints remain active.
   HTTP contracts, DNS pinning and rejection paths use deterministic fixtures.
   Deployed CSP markup/headers and inert frontend rendering are tested; automated
   real-browser CSP violation reporting/evaluation is not yet part of CI.
+
+
+## GitHub threat checklist
+
+| Threat / required rule | Mitigation | Test / evidence | Status |
+| --- | --- | --- | --- |
+| OAuth login CSRF / callback swaps | Ten-minute single-use state hash bound to initiating session; exact callback; POST initiation CSRF | `TestGitHubOAuthWebhookAndDelayIsolation`, `TestOpenAPITenantMatrix` | Implemented |
+| Authorization code interception | S256 PKCE with encrypted verifier, no plaintext persistence; fixed guarded token endpoint | `TestGitHubOAuthContractAndScopeDowngrade`, `TestGitHubOAuthWebhookAndDelayIsolation` | Implemented |
+| Excessive access / private content | No requested scopes; reject broader returned grant and private repositories; one pinned repository ID | `TestGitHubOAuthContractAndScopeDowngrade` | Implemented; public repositories only |
+| Token theft or cross-tenant ciphertext swap | Separate AES-256-GCM key; workspace/connection/purpose AAD; erase on disconnect | `TestGitHubEncryptionBoundToTenantAndPurpose`, `TestGitHubOAuthWebhookAndDelayIsolation` | Implemented |
+| Forged webhook | Exact GitHub raw-body HMAC-SHA256, constant-time comparison; independent per-connection secret | `TestGitHubRawBodySignature`, `TestGitHubOAuthWebhookAndDelayIsolation` | Implemented |
+| Delivery replay or unsigned delivery-header replacement | Unique delivery and signed-body digest, transactionally persisted before worker processing; concurrent replay fails | `TestGitHubOAuthWebhookAndDelayIsolation` | Implemented |
+| Fabricated timestamp guarantee | Use authenticated event payload timestamps, seven-day window and future bound; ping uses receipt/digest dedupe | `TestGitHubOAuthWebhookAndDelayIsolation` | Implemented with vendor limitation; no signed timestamp header exists |
+| Cross-workspace routing | Encrypted capability verified before consumer/session scope; connection route hash, repository ID/name and HMAC checked inside FORCE-RLS transaction | `TestGitHubOAuthWebhookAndDelayIsolation`, `TestEveryTenantTableRLSWithoutApplicationFilters` | Implemented |
+| Forged task references or foreign jobs | Live connector admin and per-action policy; active tenant task/project lookup; composite links | `TestGitHubOAuthWebhookAndDelayIsolation`, `TestEveryWorkerJobRejectsForeignScope`, normal plus `rlstest` | Implemented |
+| Prompt injection / unapproved task writes | External titles remain untrusted message content; ordinary worker detection and pending proposals only | `TestGitHubOAuthWebhookAndDelayIsolation` | Implemented |
+| Secret leakage through logs/audit/UI | Fixed metadata DTOs only; no URL/body logs; status excludes credentials; one-time setup in memory; processed bodies cleared | `TestGitHubOAuthWebhookAndDelayIsolation`, `Integrations.test.tsx`, `scripts/github_proxy_smoke.py` | Implemented |
+| Abuse / stale updates / repeated signals | One MiB ingress, per-connection/IP limits, bounded batches and links, per-item daily signal cap, update ordering | `TestOpenAPITenantMatrix`, GitHub workflow tests | Implemented |
+| Remote grant removal, missed deliveries, key rotation | Manual revoke in GitHub; last-received-event staleness disclosed; independent key backup/rotation procedure required | Deployment runbook in README | Operational boundary |
+
+GitHub integration configuration is admin-only. The callback GET is a narrowly
+reviewed OAuth exception to browser mutation CSRF: exact session-bound, single-use
+state replaces the header. Webhook POST uses vendor HMAC plus an authenticated
+service route, never browser cookies or caller-selected workspace IDs. The approved
+identity schema has not gained any global integration/business tables.

@@ -159,3 +159,11 @@ func (s *Service) JobMember(ctx context.Context, tx database.TenantTx, user uuid
 	}
 	return actor, nil
 }
+
+// BoundConsumer resolves only a cryptographically authenticated integration route.
+// Callers must first authenticate the routing capability; this is never a URL UUID lookup.
+func (s *Service) BoundConsumer(ctx context.Context, workspace, sessionID uuid.UUID) (policy.Actor, error) {
+	a := policy.Actor{ID: sessionID.String(), WorkspaceID: workspace.String(), Role: policy.Consumer}
+	err := s.InConsumer(ctx, a, func(database.TenantTx) error { return nil })
+	return a, err
+}

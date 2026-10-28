@@ -71,7 +71,7 @@ func Load(repositoryRoot string) ([]Operation, error) {
 				return nil, errors.New("OpenAPI operation lacks an exact security case: " + value.ID)
 			}
 			switch op.Scope {
-			case "public", "identity", "collection", "resource", "websocket":
+			case "public", "identity", "collection", "resource", "websocket", "oauth", "webhook":
 			default:
 				return nil, errors.New("invalid security scope")
 			}

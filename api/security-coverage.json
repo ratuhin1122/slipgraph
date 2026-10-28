@@ -358,5 +358,53 @@
     "method": "GET",
     "path": "/auth/document-nonce",
     "scope": "public"
+  },
+  {
+    "operation_id": "getGitHub",
+    "method": "GET",
+    "path": "/integrations/github",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "configureGitHub",
+    "method": "POST",
+    "path": "/integrations/github",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "disconnectGitHub",
+    "method": "DELETE",
+    "path": "/integrations/github",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "connectGitHub",
+    "method": "POST",
+    "path": "/integrations/github/connect",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "completeGitHub",
+    "method": "GET",
+    "path": "/integrations/github/callback",
+    "scope": "oauth"
+  },
+  {
+    "operation_id": "listGitHubEvents",
+    "method": "GET",
+    "path": "/integrations/github/events",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "mapGitHubIssue",
+    "method": "POST",
+    "path": "/integrations/github/links",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "receiveGitHub",
+    "method": "POST",
+    "path": "/hooks/github/{routingToken}",
+    "scope": "webhook"
   }
 ]

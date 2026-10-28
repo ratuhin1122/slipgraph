@@ -313,6 +313,38 @@ type Error struct {
 	Error string `json:"error"`
 }
 
+// GitHubHook defines model for GitHubHook.
+type GitHubHook struct {
+	Secret string `json:"secret"`
+	Url    string `json:"url"`
+}
+
+// GitHubLog defines model for GitHubLog.
+type GitHubLog struct {
+	EventType  string    `json:"event_type"`
+	Id         string    `json:"id"`
+	Outcome    string    `json:"outcome"`
+	ReceivedAt time.Time `json:"received_at"`
+}
+
+// GitHubSetup defines model for GitHubSetup.
+type GitHubSetup struct {
+	ChannelId  string `json:"channel_id"`
+	DelayDays  int    `json:"delay_days"`
+	Repository string `json:"repository"`
+	StaleDays  int    `json:"stale_days"`
+}
+
+// GitHubStatus defines model for GitHubStatus.
+type GitHubStatus struct {
+	ChannelId  *string `json:"channel_id"`
+	Connected  bool    `json:"connected"`
+	DelayDays  int     `json:"delay_days"`
+	Enabled    bool    `json:"enabled"`
+	Repository string  `json:"repository"`
+	StaleDays  int     `json:"stale_days"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	Status HealthStatus `json:"status"`
@@ -773,6 +805,18 @@ type ListMessagesParams struct {
 	Limit    *int                `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// CompleteGitHubParams defines parameters for CompleteGitHub.
+type CompleteGitHubParams struct {
+	Code  string `form:"code" json:"code"`
+	State string `form:"state" json:"state"`
+}
+
+// MapGitHubIssueJSONBody defines parameters for MapGitHubIssue.
+type MapGitHubIssueJSONBody struct {
+	IssueNumber int64  `json:"issue_number"`
+	TaskId      string `json:"task_id"`
+}
+
 // GetMeetingTranscriptParams defines parameters for GetMeetingTranscript.
 type GetMeetingTranscriptParams struct {
 	Q     *string `form:"q,omitempty" json:"q,omitempty"`
@@ -807,6 +851,12 @@ type CreateChannelJSONRequestBody = CreateChannelInput
 
 // PostMessageJSONRequestBody defines body for PostMessage for application/json ContentType.
 type PostMessageJSONRequestBody = PostMessageInput
+
+// ConfigureGitHubJSONRequestBody defines body for ConfigureGitHub for application/json ContentType.
+type ConfigureGitHubJSONRequestBody = GitHubSetup
+
+// MapGitHubIssueJSONRequestBody defines body for MapGitHubIssue for application/json ContentType.
+type MapGitHubIssueJSONRequestBody MapGitHubIssueJSONBody
 
 // CreateInviteJSONRequestBody defines body for CreateInvite for application/json ContentType.
 type CreateInviteJSONRequestBody = InviteInput
@@ -939,6 +989,30 @@ type ServerInterface interface {
 
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+
+	// (POST /hooks/github/{routingToken})
+	ReceiveGitHub(w http.ResponseWriter, r *http.Request, routingToken string)
+
+	// (DELETE /integrations/github)
+	DisconnectGitHub(w http.ResponseWriter, r *http.Request)
+
+	// (GET /integrations/github)
+	GetGitHub(w http.ResponseWriter, r *http.Request)
+
+	// (POST /integrations/github)
+	ConfigureGitHub(w http.ResponseWriter, r *http.Request)
+
+	// (GET /integrations/github/callback)
+	CompleteGitHub(w http.ResponseWriter, r *http.Request, params CompleteGitHubParams)
+
+	// (POST /integrations/github/connect)
+	ConnectGitHub(w http.ResponseWriter, r *http.Request)
+
+	// (GET /integrations/github/events)
+	ListGitHubEvents(w http.ResponseWriter, r *http.Request)
+
+	// (POST /integrations/github/links)
+	MapGitHubIssue(w http.ResponseWriter, r *http.Request)
 
 	// (POST /invites)
 	CreateInvite(w http.ResponseWriter, r *http.Request)
@@ -1170,6 +1244,46 @@ func (_ Unimplemented) GetChannelPresence(w http.ResponseWriter, r *http.Request
 
 // (GET /healthz)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /hooks/github/{routingToken})
+func (_ Unimplemented) ReceiveGitHub(w http.ResponseWriter, r *http.Request, routingToken string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /integrations/github)
+func (_ Unimplemented) DisconnectGitHub(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /integrations/github)
+func (_ Unimplemented) GetGitHub(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /integrations/github)
+func (_ Unimplemented) ConfigureGitHub(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /integrations/github/callback)
+func (_ Unimplemented) CompleteGitHub(w http.ResponseWriter, r *http.Request, params CompleteGitHubParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /integrations/github/connect)
+func (_ Unimplemented) ConnectGitHub(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /integrations/github/events)
+func (_ Unimplemented) ListGitHubEvents(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /integrations/github/links)
+func (_ Unimplemented) MapGitHubIssue(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1933,6 +2047,206 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReceiveGitHub operation middleware
+func (siw *ServerInterfaceWrapper) ReceiveGitHub(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "routingToken" -------------
+	var routingToken string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "routingToken", chi.URLParam(r, "routingToken"), &routingToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "routingToken", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReceiveGitHub(w, r, routingToken)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisconnectGitHub operation middleware
+func (siw *ServerInterfaceWrapper) DisconnectGitHub(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisconnectGitHub(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGitHub operation middleware
+func (siw *ServerInterfaceWrapper) GetGitHub(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGitHub(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfigureGitHub operation middleware
+func (siw *ServerInterfaceWrapper) ConfigureGitHub(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfigureGitHub(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteGitHub operation middleware
+func (siw *ServerInterfaceWrapper) CompleteGitHub(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteGitHubParams
+
+	// ------------- Required query parameter "code" -------------
+
+	if paramValue := r.URL.Query().Get("code"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "code", r.URL.Query(), &params.Code)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	// ------------- Required query parameter "state" -------------
+
+	if paramValue := r.URL.Query().Get("state"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "state", r.URL.Query(), &params.State)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteGitHub(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConnectGitHub operation middleware
+func (siw *ServerInterfaceWrapper) ConnectGitHub(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConnectGitHub(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListGitHubEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListGitHubEvents(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGitHubEvents(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MapGitHubIssue operation middleware
+func (siw *ServerInterfaceWrapper) MapGitHubIssue(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MapGitHubIssue(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3198,6 +3512,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/hooks/github/{routingToken}", wrapper.ReceiveGitHub)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/integrations/github", wrapper.DisconnectGitHub)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/integrations/github", wrapper.GetGitHub)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/integrations/github", wrapper.ConfigureGitHub)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/integrations/github/callback", wrapper.CompleteGitHub)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/integrations/github/connect", wrapper.ConnectGitHub)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/integrations/github/events", wrapper.ListGitHubEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/integrations/github/links", wrapper.MapGitHubIssue)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/invites", wrapper.CreateInvite)

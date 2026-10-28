@@ -38,6 +38,7 @@ import (
 
 type securityObjects struct {
 	Project, Task, Blocker, Channel, Message, Member, Run, Brief, Plan, Meeting, Segment, Extraction, Search, Ask uuid.UUID
+	GitHubConnection, GitHubEvent, GitHubItem                                                                     uuid.UUID
 	Proposal                                                                                                      proposals.Proposal
 	Token                                                                                                         string
 }
@@ -228,11 +229,18 @@ func newSecurityFixture(t *testing.T) *securityFixture {
 			t.Fatal(e)
 		}
 	}
+	seedGitHubSecurity(t, f)
 	return f
 }
 func (f *securityFixture) path(op securityspec.Operation, index int) string {
 	o := f.objects[index]
 	r := strings.NewReplacer("{projectId}", o.Project.String(), "{taskId}", o.Task.String(), "{blockerId}", o.Blocker.String(), "{channelId}", o.Channel.String(), "{messageId}", o.Message.String(), "{memberId}", o.Member.String(), "{proposalId}", o.Proposal.ID.String(), "{runId}", o.Run.String(), "{briefId}", o.Brief.String(), "{meetingId}", o.Meeting.String(), "{segmentId}", o.Segment.String(), "{requestId}", o.Search.String())
+	if op.ID == "completeGitHub" {
+		return op.Path + "?code=invalid&state=" + strings.Repeat("x", 43)
+	}
+	if op.ID == "receiveGitHub" {
+		return "/hooks/github/invalid"
+	}
 	return r.Replace(op.Path)
 }
 func (f *securityFixture) body(id string, index int) interface{} {
@@ -240,6 +248,10 @@ func (f *securityFixture) body(id string, index int) interface{} {
 	version := map[string]interface{}{"version": 1}
 	task := map[string]interface{}{"title": "Updated", "description": "", "status": "todo", "owner_id": nil, "start": "2030-01-01T00:00:00Z", "due": "2030-01-02T00:00:00Z", "estimate_minutes": 60, "milestone": false}
 	switch id {
+	case "configureGitHub":
+		return map[string]interface{}{"repository": "octo/fixture", "channel_id": o.Channel, "stale_days": 7, "delay_days": 1, "workspace_id": f.sessions[index].WorkspaceID}
+	case "mapGitHubIssue":
+		return map[string]interface{}{"issue_number": 12, "task_id": o.Task, "workspace_id": f.sessions[index].WorkspaceID}
 	case "updateTask":
 		task["version"] = 1
 		return task
@@ -321,7 +333,7 @@ func TestOpenAPITenantMatrix(t *testing.T) {
 	}
 	a, b := f.users[0], f.users[1]
 	sa, sb := f.sessions[0], f.sessions[1]
-	foreignIDs := []string{sa.User.Email, f.objects[0].Channel.String(), f.objects[0].Member.String(), f.objects[0].Run.String(), f.objects[0].Plan.String(), f.objects[0].Extraction.String(), f.objects[0].Segment.String(), f.objects[0].Search.String(), f.objects[0].Ask.String(), sa.WorkspaceID.String(), sa.User.ID.String(), f.objects[0].Project.String(), f.objects[0].Task.String(), f.objects[0].Message.String(), f.objects[0].Proposal.ID.String(), f.objects[0].Meeting.String(), f.objects[0].Brief.String(), "PRIVATE-" + sa.User.Email}
+	foreignIDs := []string{f.objects[0].GitHubConnection.String(), f.objects[0].GitHubEvent.String(), f.objects[0].GitHubItem.String(), sa.User.Email, f.objects[0].Channel.String(), f.objects[0].Member.String(), f.objects[0].Run.String(), f.objects[0].Plan.String(), f.objects[0].Extraction.String(), f.objects[0].Segment.String(), f.objects[0].Search.String(), f.objects[0].Ask.String(), sa.WorkspaceID.String(), sa.User.ID.String(), f.objects[0].Project.String(), f.objects[0].Task.String(), f.objects[0].Message.String(), f.objects[0].Proposal.ID.String(), f.objects[0].Meeting.String(), f.objects[0].Brief.String(), "PRIVATE-" + sa.User.Email}
 	noForeign := func(w *httptest.ResponseRecorder) {
 		t.Helper()
 		for _, id := range foreignIDs {
@@ -334,6 +346,13 @@ func TestOpenAPITenantMatrix(t *testing.T) {
 		t.Run(op.ID, func(t *testing.T) {
 			path := f.path(op, 0)
 			body := f.body(op.ID, 0)
+			if op.Scope == "webhook" {
+				w := matrixRaw(b, op.Method, path, body, "https://evil.example", "", nil)
+				if w.Code != 404 {
+					t.Fatalf("unauthenticated hook route: %d", w.Code)
+				}
+				return
+			}
 			unsafe := op.Method != "GET"
 			// Every unsafe operation is covered, including public authentication and uploads.
 			if unsafe {
@@ -412,6 +431,11 @@ func TestOpenAPITenantMatrix(t *testing.T) {
 					}
 					noForeign(w)
 				}
+			case "oauth":
+				w := b.request("GET", path, nil, false)
+				if w.Code != 400 {
+					t.Fatalf("foreign OAuth state: %d", w.Code)
+				}
 			case "identity", "public":
 				switch op.ID {
 				case "switchWorkspace":
@@ -431,6 +455,14 @@ func TestOpenAPITenantMatrix(t *testing.T) {
 				case "acceptInvite":
 					if w.Code != 404 {
 						t.Fatalf("foreign invite: %d", w.Code)
+					}
+				case "connectGitHub":
+					if w.Code != 503 {
+						t.Fatalf("unconfigured GitHub connect: %d", w.Code)
+					}
+				case "disconnectGitHub":
+					if w.Code != 204 {
+						t.Fatalf("own GitHub disconnect: %d", w.Code)
 					}
 				case "getDocumentNonce":
 					if w.Code != 204 || len(w.Header().Get("X-CSP-Nonce")) != 43 {

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/slipgraph/slipgraph/internal/auth"
 	"github.com/slipgraph/slipgraph/internal/chat"
+	"github.com/slipgraph/slipgraph/internal/integrations"
 	"github.com/slipgraph/slipgraph/internal/meetings"
 	"github.com/slipgraph/slipgraph/internal/platform/contract"
 	"github.com/slipgraph/slipgraph/internal/platform/logging"
@@ -29,7 +30,9 @@ type chatEndpoints = chat.HTTP
 type proposalEndpoints = proposals.HTTP
 type searchEndpoints = search.HTTP
 type meetingEndpoints = meetings.HTTP
+type integrationEndpoints = integrations.HTTP
 type Handler struct {
+	*integrationEndpoints
 	*taskEndpoints
 	*chatEndpoints
 	*proposalEndpoints
@@ -68,9 +71,13 @@ func NewAPI(logger *slog.Logger, identity *auth.HTTP, probes ...Probe) http.Hand
 	return NewRealtimeAPI(logger, identity, nil, probes...)
 }
 func NewRealtimeAPI(logger *slog.Logger, identity *auth.HTTP, gateway *realtime.Gateway, probes ...Probe) http.Handler {
+	cfg, _ := integrations.GitHubFromEnv()
+	return NewIntegratedAPI(logger, identity, gateway, integrations.NewGitHub(identity.Service, cfg), probes...)
+}
+func NewIntegratedAPI(logger *slog.Logger, identity *auth.HTTP, gateway *realtime.Gateway, github *integrations.GitHub, probes ...Probe) http.Handler {
 	r := chi.NewRouter()
 	r.Use(Middleware(logger))
-	h := &Handler{searchEndpoints: &search.HTTP{Store: &search.Store{Auth: identity.Service}, Identity: identity}, meetingEndpoints: &meetings.HTTP{Store: meetings.DefaultStore(identity.Service), Identity: identity, Uploads: make(chan struct{}, 4)}, proposalEndpoints: &proposals.HTTP{Store: &proposals.Store{Auth: identity.Service}, Identity: identity}, Gateway: gateway, chatEndpoints: &chat.HTTP{Store: &chat.Store{Auth: identity.Service}, Identity: identity}, HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
+	h := &Handler{integrationEndpoints: &integrations.HTTP{Store: github, Identity: identity}, searchEndpoints: &search.HTTP{Store: &search.Store{Auth: identity.Service}, Identity: identity}, meetingEndpoints: &meetings.HTTP{Store: meetings.DefaultStore(identity.Service), Identity: identity, Uploads: make(chan struct{}, 4)}, proposalEndpoints: &proposals.HTTP{Store: &proposals.Store{Auth: identity.Service}, Identity: identity}, Gateway: gateway, chatEndpoints: &chat.HTTP{Store: &chat.Store{Auth: identity.Service}, Identity: identity}, HTTP: identity, taskEndpoints: &tasks.HTTP{Store: &tasks.Store{Auth: identity.Service}, Identity: identity}, probes: probes}
 	return contract.HandlerFromMux(h, r)
 }
 

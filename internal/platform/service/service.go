@@ -15,6 +15,7 @@ import (
 	"github.com/slipgraph/slipgraph/internal/auth"
 	"github.com/slipgraph/slipgraph/internal/chat"
 	"github.com/slipgraph/slipgraph/internal/events"
+	"github.com/slipgraph/slipgraph/internal/integrations"
 	"github.com/slipgraph/slipgraph/internal/llm"
 	"github.com/slipgraph/slipgraph/internal/meetings"
 	"github.com/slipgraph/slipgraph/internal/platform/config"
@@ -79,6 +80,15 @@ func Run(name, defaultAddr string) int {
 		logger.Error("startup failed", "error", err)
 		return 1
 	}
+	github := integrations.NewGitHubWorker(identity)
+	if name == "api" {
+		githubConfig, err := integrations.GitHubFromEnv()
+		if err != nil {
+			logger.Error("startup failed")
+			return 1
+		}
+		github = integrations.NewGitHub(identity, githubConfig)
+	}
 	broker := &realtime.Broker{Redis: cache}
 	var handler http.Handler
 	if name == "api" {
@@ -90,8 +100,11 @@ func Run(name, defaultAddr string) int {
 		endpoints.TrustedProxyHost = os.Getenv("TRUSTED_PROXY_HOST")
 		gateway := realtime.New(ctx, endpoints, &chat.Store{Auth: identity}, broker)
 		defer gateway.Shutdown()
-		handler = httpserver.NewRealtimeAPI(logger, endpoints, gateway, probes...)
+		handler = httpserver.NewIntegratedAPI(logger, endpoints, gateway, github, probes...)
 	} else {
+		githubDone := make(chan struct{})
+		go func() { defer close(githubDone); github.Run(ctx) }()
+		defer func() { stop(); <-githubDone }()
 		provider, err := llm.FromEnv()
 		if err != nil {
 			logger.Error("startup failed", "error", err)

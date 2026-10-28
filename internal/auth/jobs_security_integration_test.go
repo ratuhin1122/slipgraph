@@ -226,6 +226,9 @@ func TestEveryWorkerJobRejectsForeignScope(t *testing.T) {
 	if embedder.calls != 0 {
 		t.Fatal("foreign search called provider")
 	}
+	gh := integrations.NewGitHub(f.identity, githubTestConfig())
+	reject("runner/github-event", func() error { return gh.Process(ctx, b, o.GitHubEvent) })
+	reject("runner/github-stale", func() error { return gh.Stale(ctx, b, o.GitHubItem) })
 	raw, e := os.ReadFile("../../api/job-security-coverage.json")
 	if e != nil {
 		t.Fatal(e)
