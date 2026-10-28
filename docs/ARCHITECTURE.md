@@ -373,3 +373,31 @@ retrieved set. Completion and reads recheck source visibility/hashes; changed
 sources invalidate cached answers. The Ctrl+K palette renders text and code-built
 internal links. See [SEARCH.md](SEARCH.md) for limits, configuration and benchmark
 semantics. Default providers remain disabled; mock behavior is explicitly labeled.
+
+
+## Security verification and browser boundary
+
+OpenAPI methods/paths and registered routes are compared with the reviewed security
+inventory. Every resource route has real A fixtures and foreign B attempts;
+unscoped collections and public/identity operations have explicit privacy cases.
+A source/schema inventory similarly gates consumer and proposal job kinds.
+
+CI runs the entire Docker-backed tenant suite normally and with the compile-time
+`rlstest` fault injection. That build removes business workspace equality guards
+from TenantTx SQL, preserving bind parameters and the transaction GUC so FORCE RLS
+must independently hold. Normal builds contain no runtime switch for this behavior.
+The catalog suite checks every tenant table and the exact global identity exception.
+
+The production frontend requires a fresh 256-bit crypto/rand nonce from the
+rate-limited public document bootstrap before serving HTML. Vite nonce placeholders
+are replaced by NGINX; strict-dynamic permits only the trusted script chain.
+No-store, disabled conditional HTML caching and backend CSP preservation avoid
+nonce reuse and loss of private recording sandbox headers. The API remains
+default-src none. Role/action preflight rejects unknown actions; actual ownership
+and resource policy remain mandatory in the tenant transaction.
+
+Outbound provider defaults use a shared HTTPS guard with public-IP checks, DNS
+pinning, TLS hostname verification and no environment proxy or redirects.
+The generic, workspace-bound webhook verifier has atomic RLS replay receipts but
+exposes no ingress endpoint or vendor adapter. These gated integration boundaries
+and remaining deployment responsibilities are detailed in THREAT_MODEL.md.

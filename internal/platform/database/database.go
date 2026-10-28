@@ -103,19 +103,19 @@ func (t TenantTx) Exec(ctx context.Context, query string, args ...interface{}) (
 	if !t.valid() {
 		return pgconn.CommandTag{}, errors.New("tenant transaction required")
 	}
-	return t.tx.Exec(ctx, query, args...)
+	return t.tx.Exec(ctx, tenantSQL(query), args...)
 }
 func (t TenantTx) Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
 	if !t.valid() {
 		return nil, errors.New("tenant transaction required")
 	}
-	return t.tx.Query(ctx, query, args...)
+	return t.tx.Query(ctx, tenantSQL(query), args...)
 }
 func (t TenantTx) QueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row {
 	if !t.valid() {
 		return failedRow{errors.New("tenant transaction required")}
 	}
-	return t.tx.QueryRow(ctx, query, args...)
+	return t.tx.QueryRow(ctx, tenantSQL(query), args...)
 }
 
 type failedRow struct{ err error }

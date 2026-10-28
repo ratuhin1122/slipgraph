@@ -24,7 +24,36 @@ func violations(path, source string) []string {
 		return nil
 	}
 	var errors []string
+	httpAliases := map[string]bool{}
+	for _, imp := range tree.Imports {
+		value, _ := strconv.Unquote(imp.Path.Value)
+		if value == "net/http" {
+			name := "http"
+			if imp.Name != nil {
+				name = imp.Name.Name
+			}
+			httpAliases[name] = true
+		}
+	}
+	guardedHTTP := strings.Contains(normalized, "/pkg/safehttp/")
 	ast.Inspect(tree, func(node ast.Node) bool {
+		if !guardedHTTP {
+			if literal, ok := node.(*ast.CompositeLit); ok {
+				if typ, ok := literal.Type.(*ast.SelectorExpr); ok && typ.Sel.Name == "Client" {
+					if alias, ok := typ.X.(*ast.Ident); ok && httpAliases[alias.Name] {
+						errors = append(errors, "outbound HTTP clients must use safehttp")
+					}
+				}
+			}
+			if selector, ok := node.(*ast.SelectorExpr); ok {
+				if alias, ok := selector.X.(*ast.Ident); ok && httpAliases[alias.Name] {
+					switch selector.Sel.Name {
+					case "Get", "Post", "PostForm", "Head", "DefaultClient", "DefaultTransport":
+						errors = append(errors, "unguarded outbound HTTP is forbidden")
+					}
+				}
+			}
+		}
 		if literal, ok := node.(*ast.BasicLit); ok && literal.Kind == token.STRING {
 			value, _ := strconv.Unquote(literal.Value)
 			if strings.Contains(value, "identity.") && !isAuth {
@@ -33,6 +62,19 @@ func violations(path, source string) []string {
 		}
 		if call, ok := node.(*ast.CallExpr); ok {
 			if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
+				// Presence checks that reject workspace_id are allowed; reading a
+				// business scope from any request getter is never allowed.
+				if selector.Sel.Name == "Get" || selector.Sel.Name == "FormValue" || selector.Sel.Name == "PostFormValue" || selector.Sel.Name == "PathValue" {
+					for _, arg := range call.Args {
+						if lit, ok := arg.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+							key, _ := strconv.Unquote(lit.Value)
+							key = strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(key))
+							if key == "workspaceid" || key == "xworkspaceid" || key == "tenantid" || key == "xtenantid" {
+								errors = append(errors, "request-selected tenant identity is forbidden")
+							}
+						}
+					}
+				}
 				if !isAuth && (selector.Sel.Name == "Begin" || selector.Sel.Name == "BeginTx" || selector.Sel.Name == "Acquire" || selector.Sel.Name == "Connect") {
 					errors = append(errors, "raw database connections/transactions are forbidden outside auth/database")
 				}
@@ -110,6 +152,11 @@ func TestGuardRejectsBypass(t *testing.T) {
 		`package tasks;func bad(){aliased.Query(ctx,"SELECT * FROM app.tasks")}`,
 		`package tasks;func bad(){dbgen.New(pool)}`,
 		`package tasks;const query="SELECT * FROM identity.sessions"`,
+		`package tasks;func bad(){r.URL.Query().Get("workspace_id")}`,
+		`package tasks;func bad(){r.Header.Get("X-Workspace-ID")}`,
+		`package tasks;func bad(){r.PathValue("tenant_id")}`,
+		`package integrations;import "net/http";func bad(){http.Get(userURL)}`,
+		`package integrations;import nethttp "net/http";func bad(){_ = &nethttp.Client{}}`,
 	} {
 		if len(violations("/repo/internal/tasks/bad.go", source)) == 0 {
 			t.Fatal("guard accepted bypass")

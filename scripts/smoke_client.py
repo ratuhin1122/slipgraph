@@ -2,11 +2,13 @@
 import http.cookies
 import json
 import os
+import secrets
 import urllib.error
 import urllib.request
 
 origin = os.environ.get("PUBLIC_ORIGIN", "http://localhost:5173").rstrip("/")
 cookies: dict[str, str] = {}
+fixture_accounts: list[dict[str, str]] = []
 
 
 def request(method: str, path: str, body=None, csrf=None, expected=200, raw=False, content_type=None):
@@ -32,11 +34,22 @@ def request(method: str, path: str, body=None, csrf=None, expected=200, raw=Fals
                 cookies[key] = cookie.value
         assert response.status == expected, f"{method} {path}: expected {expected}, received {response.status}"
         payload = response.read()
-        return payload if raw else json.loads(payload) if payload else None
+        result = payload if raw else json.loads(payload) if payload else None
+        if method == "POST" and path == "/auth/signup" and response.status == 200 and isinstance(body, dict):
+            fixture_accounts.append({"email": body["email"], "password": body["password"]})
+        return result
 
 
 def mutate(method, path, body=None, expected=200):
     csrf = request("GET", "/auth/csrf")["csrf_token"]
     return request(method, path, body, csrf, expected)
+
+
+def fixture_identity(label: str, account_index: int):
+    """Reuse only this process's synthetic identities, with a fresh tenant each time."""
+    if account_index < len(fixture_accounts):
+        mutate("POST", "/auth/login", fixture_accounts[account_index])
+        return mutate("POST", "/auth/workspaces", {"name": label})
+    return mutate("POST", "/auth/signup", {"email": f"security-{secrets.token_hex(8)}@example.com", "password": secrets.token_urlsafe(32), "display_name": label, "workspace_name": label})
 
 

@@ -109,3 +109,13 @@ func TestSearchMatrix(t *testing.T) {
 		}
 	}
 }
+
+func TestHandlerPreflightDoesNotGrantOwnership(t *testing.T) {
+	a := Actor{ID: "me", WorkspaceID: "a", Role: Admin}
+	if !MayAttempt(context.Background(), a, MemberRoleChange, "a") || Can(context.Background(), a, MemberRoleChange, Resource{WorkspaceID: "a", OwnerID: "me"}) {
+		t.Fatal("role preflight bypassed own-role denial")
+	}
+	if MayAttempt(context.Background(), a, "unknown", "a") || MayAttempt(context.Background(), a, TaskRead, "b") {
+		t.Fatal("preflight failed open")
+	}
+}

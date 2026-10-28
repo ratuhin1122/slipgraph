@@ -20,20 +20,22 @@ jobs:
           check-latest: true
           cache: true
       - run: go mod download
-      - run: go build ./cmd/... ./internal/...
-      - run: go vet ./cmd/... ./internal/...
-      - run: go test -race -count=1 ./cmd/... ./internal/...
+      - run: go build ./cmd/... ./internal/... ./pkg/...
+      - run: go vet ./cmd/... ./internal/... ./pkg/...
+      - run: go test -race -count=1 ./cmd/... ./internal/... ./pkg/...
       # Docker is required: integration tests never silently skip isolation checks.
       - run: go test -race -count=1 -tags=integration -timeout=5m ./internal/platform/database
-      - run: go test -race -count=1 -tags=integration -timeout=5m ./internal/auth
+      - run: go test -race -count=1 -tags=integration -timeout=8m ./internal/auth
+      - run: go test -tags=rlstest ./internal/platform/database -run=TestTenantFilterFaultInjection
+      - run: go test -race -count=1 -tags=integration,rlstest -timeout=8m ./internal/auth
       - run: go test ./internal/risk -run=^$ -bench=BenchmarkImpact -benchtime=3x
       - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.15.0
-          args: ./cmd/... ./internal/...
+          args: ./cmd/... ./internal/... ./pkg/...
       # Generated OpenAPI scope names are metadata, not embedded credentials.
-      - run: go run github.com/securego/gosec/v2/cmd/gosec@v2.30.0 -exclude-generated ./cmd/... ./internal/...
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./cmd/... ./internal/...
+      - run: go run github.com/securego/gosec/v2/cmd/gosec@v2.30.0 -exclude-generated ./cmd/... ./internal/... ./pkg/...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./cmd/... ./internal/... ./pkg/...
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -81,10 +83,8 @@ jobs:
           curl --fail http://localhost:5173/
           curl --fail http://localhost:5173/api/healthz
           docker compose exec -T worker wget -qO- http://localhost:8081/healthz
-      - run: python3 scripts/smoke.py
-      - run: python3 scripts/signature_smoke.py
-      - run: python3 scripts/meetings_smoke.py
-      - run: python3 scripts/search_smoke.py
+      - name: Product/security smoke tests followed by slipgraph audit verify
+        run: python3 scripts/run_smoke.py
       - name: Proxy follows API address changes
         run: |
           old_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' slipgraph-api-1)

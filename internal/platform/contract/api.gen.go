@@ -886,6 +886,9 @@ type ServerInterface interface {
 	// (GET /auth/csrf)
 	GetCSRF(w http.ResponseWriter, r *http.Request)
 
+	// (GET /auth/document-nonce)
+	GetDocumentNonce(w http.ResponseWriter, r *http.Request)
+
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
 
@@ -1077,6 +1080,11 @@ func (_ Unimplemented) VerifyAudit(w http.ResponseWriter, r *http.Request) {
 
 // (GET /auth/csrf)
 func (_ Unimplemented) GetCSRF(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /auth/document-nonce)
+func (_ Unimplemented) GetDocumentNonce(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1485,6 +1493,20 @@ func (siw *ServerInterfaceWrapper) GetCSRF(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCSRF(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDocumentNonce operation middleware
+func (siw *ServerInterfaceWrapper) GetDocumentNonce(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDocumentNonce(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3122,6 +3144,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/csrf", wrapper.GetCSRF)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/document-nonce", wrapper.GetDocumentNonce)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/login", wrapper.Login)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/slipgraph/slipgraph/pkg/safehttp"
 	"io"
 	"math"
 	"mime/multipart"
@@ -116,7 +117,7 @@ func (p OpenAITranscriber) Transcribe(ctx context.Context, in Recording) ([]Segm
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	client := p.Client
 	if client == nil {
-		client = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		client = safehttp.NewClient(5*time.Minute, false)
 	}
 	res, e := client.Do(req)
 	if e != nil {

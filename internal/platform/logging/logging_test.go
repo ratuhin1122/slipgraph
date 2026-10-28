@@ -21,3 +21,14 @@ func TestRedaction(t *testing.T) {
 		t.Fatal("missing redaction")
 	}
 }
+
+func TestAllowedKeysCannotSmuggleSecretValues(t *testing.T) {
+	var out bytes.Buffer
+	l := New(&out, "info")
+	for _, key := range []string{"workspace_id", "request_id", "run_id", "method", "status", "input_tokens", "output_tokens", "cost_microusd", "duration_ms", "service", "event", "time", "level"} {
+		l.Info("request", key, "CANARY-SECRET", "nested", slog.GroupValue(slog.String(key, "CANARY-SECRET")))
+	}
+	if strings.Contains(out.String(), "CANARY-SECRET") {
+		t.Fatal("allow-listed key leaked untyped secret")
+	}
+}

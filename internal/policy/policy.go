@@ -67,7 +67,10 @@ const (
 
 // Can is the single authorization boundary. Actors originate in verified sessions;
 // consumer actors originate in authenticated, tenant-scoped service sessions.
-func Can(ctx context.Context, actor Actor, action Action, resource Resource) bool {
+// MayAttempt checks only the role/action matrix for handler preflight. It never
+// grants ownership of an object; Can must still run with the actual resource.
+func MayAttempt(ctx context.Context, actor Actor, action Action, workspaceID string) bool {
+	resource := Resource{WorkspaceID: workspaceID}
 	if ctx.Err() != nil {
 		return false
 	}
@@ -85,18 +88,36 @@ func Can(ctx context.Context, actor Actor, action Action, resource Resource) boo
 	}
 	switch action {
 	case SessionRead, SessionWrite:
-		return resource.OwnerID == "" || resource.OwnerID == actor.ID
+		return true
 	case SearchRead, SearchAsk, MeetingRead, ProposalRead, WorkspaceCreate, WorkspaceRead, MemberRead, ProjectRead, TaskRead, RiskRead, ChannelRead, RealtimeConnect, RealtimeSubscribe, PresenceRead:
 		return true
 	case MemberInvite, AuditVerify:
 		return actor.Role == Admin
 	case MemberRoleChange:
-		return actor.Role == Admin && resource.OwnerID != "" && resource.OwnerID != actor.ID
+		return actor.Role == Admin
 	case MessageEdit, MessageDelete:
-		return (actor.Role == Admin || actor.Role == Member) && resource.OwnerID == actor.ID
+		return actor.Role == Admin || actor.Role == Member
 	case MeetingWrite, DecisionWrite, ProposalDecide, AgentRequest, ProjectWrite, TaskWrite, ChannelCreate, MessagePost, TypingWrite:
 		return actor.Role == Admin || actor.Role == Member
 	default:
 		return false
+	}
+}
+
+func Can(ctx context.Context, actor Actor, action Action, resource Resource) bool {
+	if !MayAttempt(ctx, actor, action, resource.WorkspaceID) {
+		return false
+	}
+	switch action {
+	case HealthRead, AuthPublic:
+		return resource == (Resource{})
+	case SessionRead, SessionWrite:
+		return resource.OwnerID == "" || resource.OwnerID == actor.ID
+	case MemberRoleChange:
+		return resource.OwnerID != "" && resource.OwnerID != actor.ID
+	case MessageEdit, MessageDelete:
+		return resource.OwnerID == actor.ID
+	default:
+		return true
 	}
 }

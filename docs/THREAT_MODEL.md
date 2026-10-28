@@ -7,34 +7,34 @@ feature is not a claim of implemented security. Identity, project/task, and chat
 
 | Area | Requirement | Status | Evidence / remaining work |
 | --- | --- | --- | --- |
-| Tenant isolation | [x] workspace_id comes ONLY from the authenticated session, never from body, query or URL. | Implemented | Session + verified membership; server-minted workspace creation and own-directory switch tickets. Two-workspace HTTP tests. |
-| Tenant isolation | [x] Never fetch by id alone: always `id AND workspace_id`. | Implemented | Generated GetObject query filters both IDs; integration tests. |
-| Tenant isolation | [x] App connects as a non-owner, non-superuser DB role. ENABLE and FORCE row level security on every tenant table. Set tenant with `SET LOCAL app.workspace_id` inside each transaction (never session-level SET; connection pools leak it). | Implemented | Bootstrap roles, runtime catalog checks, forced RLS, transaction helper, isolation tests. |
-| Tenant isolation | [x] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Implemented | Explicit predicates inside vector/FTS branches, live hash/parent joins, FORCE RLS, per-hit policy and two-workspace query/job tests. |
+| Tenant isolation | [x] workspace_id comes ONLY from the authenticated session, never from body, query or URL. | Implemented | Session + verified membership; creation uses server UUIDs and switching uses own-directory tickets. `TestOpenAPITenantMatrix`, `TestDatabaseBoundaries`, `TestGuardRejectsBypass`. Source audit below. |
+| Tenant isolation | [x] Never fetch by id alone: always `id AND workspace_id`. | Implemented | Explicit object/workspace predicates plus FORCE RLS. `TestEveryTenantTableRLSWithoutApplicationFilters` and `TestOpenAPITenantMatrix`, repeated with `rlstest`. |
+| Tenant isolation | [x] App connects as a non-owner, non-superuser DB role. ENABLE and FORCE row level security on every tenant table. Set tenant with `SET LOCAL app.workspace_id` inside each transaction (never session-level SET; connection pools leak it). | Implemented | `TestTenantIsolationAndRoleSafety`, `TestEveryTenantTableRLSWithoutApplicationFilters`, `TestProductionSQLFiltersRemainIntact`. |
+| Tenant isolation | [x] Vector search filters by workspace_id inside the SQL query, not after retrieval. | Implemented | Both SQL branches filter scope, live hashes/parents and per-hit policy are checked. `TestSearchIsolationAndCitations`, `TestOpenAPITenantMatrix/requestSearch` and `requestAnswer`, normal and filter-removal builds. |
 | Tenant isolation | [ ] Redis keys, websocket channels, cache entries, queue payloads and storage paths are all prefixed with the workspace id. Jobs re-verify tenant and permissions when they run. | Partial | Current query caches include workspace IDs; worker re-verifies service sessions and policy each batch. Workspace-prefixed Redis topics, leases, presence and flood budgets; chat fanout rechecks tenant policy. Private storage and search are tenant scoped. |
-| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | Docker suites cover identity privacy, every project/task/chat/proposal/brief/run/impact/meeting/search/ask endpoint and websocket subscription, unfiltered RLS, chat fanout, graph loader, proposal execution, agent generation, delay detection, create-plan/transcription/extraction jobs and hostile queued references. CI runs both suites without skips. |
-| AI / agent safety | [x] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Implemented | Escaped delimited data blocks; fixed system instructions; hostile chat fixture cannot mutate tasks or approve proposals. |
-| AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools or write dependencies; strict local schema and typed executors; generation creates only pending domain proposals plus code-controlled hypothetical assessments and immutable notices; no model tools or direct task mutation. |
-| AI / agent safety | [x] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Implemented | Locked transaction checks status, expiry, review/approval hashes and execution marker; adversarial and concurrent execution tests. |
-| AI / agent safety | [x] Execute with the approving user's permissions, never elevated agent permissions. | Implemented | Executor rechecks live approver membership and TaskWrite through policy.Can; revoked-role test. |
-| AI / agent safety | [x] Sanitize rendered AI output: no external images or auto-loading links, escape HTML. | Implemented | Inbox strips HTML, renders React text and allow-lists internal source links; inert XSS test. |
-| AI / agent safety | [x] Per-workspace LLM quotas, per-request token caps, max agent steps, timeouts. | Implemented | Persisted workspace quota reservations, bounded retries/steps, token caps, deadlines; quota exhaustion prevents provider call. |
-| Auth and sessions | [x] argon2id password hashing. Sessions in httpOnly, Secure, SameSite=Lax cookies. CSRF token on every state-changing request. Short-lived access + revocable refresh. | Implemented | Argon2id, hashed opaque access/refresh, secure host cookies, exact Origin + CSRF, rotation/replay revocation; HTTP tests. |
-| Auth and sessions | [ ] Rate limit and lock out login, signup, password reset, invite and AI endpoints. | Partial | Signup/login/invites and authenticated actions have shared budgets; persisted login lockout and bounded hashing. Internal AI enqueue has a shared per-user/workspace budget; plan requests and automatic message detection have author/workspace budgets; public reset delivery remains disabled. |
-| Auth and sessions | [x] Invite and reset tokens: random 256-bit, stored hashed, single use, short expiry. | Implemented | 256-bit random hashes; conditional single-use and expiry. Invite tests; reset issuance remains an internal delivery boundary. |
+| Tenant isolation | [x] A cross-tenant test suite (two workspaces) must cover every endpoint, websocket subscription, search query and job type, and must run in CI. | Implemented | `TestEveryOpenAPIOperationHasSecurityCase`, `TestRegisteredRoutesMatchOpenAPI`, `TestOpenAPITenantMatrix` (60 operations), `TestEveryWorkerJobRejectsForeignScope`, `TestRegisteredJobsHaveExecutedSecurityCases`, and `TestChatRealtimeIsolation`. CI repeats the complete integration suite with business SQL filters removed. |
+| AI / agent safety | [x] All workspace content (chat, comments, transcripts, GitHub text, emails) is UNTRUSTED DATA. Put it in delimited data blocks in prompts; never in the instruction channel. | Implemented | Escaped data blocks and fixed instructions. `TestPromptAndSchemaBoundary`, `TestAgentSafetyFoundation`, `TestSignatureWorkflows`, `TestMeetingsSecurityAndPipeline`, `TestMockAnswerTreatsInjectionAsData`. |
+| AI / agent safety | [x] Agents get minimum tools. Agent output is validated against a strict JSON schema and can only produce proposals. Approval is enforced in code, not in the prompt. | Implemented | No model tools/write dependencies; schema-validated pending proposals only, with read-only cited answers separate. `TestLLMHasNoDomainWriteDependencies`, `TestAgentSafetyFoundation`, `TestCitationsFailClosed`. |
+| AI / agent safety | [x] Executor checks: proposal exists, status=approved, approver has permission, proposal not expired, payload hash unchanged since approval, and not already executed. | Implemented | Locked status/expiry/hash/permission/idempotency checks. `TestAgentSafetyFoundation`, `TestEveryWorkerJobRejectsForeignScope/executor`, `TestOpenAPITenantMatrix/approveProposal` and `rejectProposal`. |
+| AI / agent safety | [x] Execute with the approving user's permissions, never elevated agent permissions. | Implemented | Live approver membership and policy rechecked. `TestAgentSafetyFoundation`, `TestProposalMatrix`, `TestHandlerPreflightDoesNotGrantOwnership`. |
+| AI / agent safety | [x] Sanitize rendered AI output: no external images or auto-loading links, escape HTML. | Implemented | DOMPurify and React text; internal source allow-list. `web/src/Proposals.test.tsx`, `web/src/Search.test.tsx`, `web/src/Meetings.test.tsx` and `web/src/Chat.test.tsx`. |
+| AI / agent safety | [x] Per-workspace LLM quotas, per-request token caps, max agent steps, timeouts. | Implemented | Persistent shared budgets, token/step caps and deadlines. `TestCapsTimeoutAndMock`, `TestAgentSafetyFoundation`, `TestSearchIsolationAndCitations`, `TestMeetingsSecurityAndPipeline`. |
+| Auth and sessions | [x] argon2id password hashing. Sessions in httpOnly, Secure, SameSite=Lax cookies. CSRF token on every state-changing request. Short-lived access + revocable refresh. | Implemented | `TestPasswordHash`, `TestCSRF`, `TestIdentitySecurity`, `TestOpenAPITenantMatrix` (missing/foreign CSRF and hostile Origin for every unsafe operation); browser helper validates every cookie flag. |
+| Auth and sessions | [ ] Rate limit and lock out login, signup, password reset, invite and AI endpoints. | Partial | Shared public/pre-auth/per-action budgets, workspace AI budgets, bounded global limiter and proxy rate zone; persistent login lockout. `TestIdentitySecurity`, `TestChatRealtimeIsolation`, `TestGlobalRateBudgetBoundedAndRefills`, `TestSearchIsolationAndCitations`. Public password-reset delivery remains gated. |
+| Auth and sessions | [x] Invite and reset tokens: random 256-bit, stored hashed, single use, short expiry. | Implemented | `TestTokens`, `TestIdentitySecurity`, `TestOpenAPITenantMatrix/acceptInvite`. Reset issuance remains internal; public delivery is not enabled. |
 | Auth and sessions | [ ] If JWT is used: pin the algorithm, verify exp/aud/iss. | Not applicable | Opaque hashed sessions; no JWT accepted. |
-| Authorization | [x] Every route, websocket message and job passes through policy.Can(). | Implemented | Central public/human/service action matrix; transaction-time rechecks; consumer session reauthorization. Live session/policy checks on socket frames, outbound notifications and heartbeats. |
-| Authorization | [x] Request DTOs use explicit allow-lists of updatable fields (no mass assignment; users can never set their own role or workspace_id). | Implemented | Generated typed DTOs plus strict unknown/required/null/body-size validation; self-role and injected workspace fields rejected in HTTP tests. |
-| WebSockets | [x] Validate Origin. Authenticate on connect, then authorize every subscribe and every inbound message. Channel names include workspace id. Set read size limits, per-user connection caps and idle timeouts. | Implemented | Exact Origin/cookie auth; strict 4096-byte frames, shared per-user caps and flood budgets, heartbeat/idle deadlines; real Redis/Postgres adversarial tests. |
-| Integrations | [ ] OAuth uses state + PKCE. Third-party tokens encrypted at rest (AES-GCM, key from env) and never logged. Minimal scopes. | Pending | Implement and test with the corresponding feature. |
-| Integrations | [ ] Webhooks: verify HMAC signature with constant-time compare, check timestamp and reject replays (store delivery ids). | Pending | Implement and test with the corresponding feature. |
-| Integrations | [ ] SSRF guard on any server-side fetch: block private, loopback, link-local and metadata IP ranges, re-check after redirects and DNS resolution. | Pending | Implement and test with the corresponding feature. |
-| Audit | [x] Append-only audit_log: app role has INSERT only (REVOKE UPDATE, DELETE, TRUNCATE) plus a trigger that raises on UPDATE/DELETE. Each row stores a hash of the previous row. | Implemented | INSERT-only runtime grant; trigger blocks UPDATE/DELETE/TRUNCATE, scoped serialized SHA-256 chain and admin verification; real database tamper tests. |
+| Authorization | [x] Every route, websocket message and job passes through policy.Can(). | Implemented | Role/action preflight rejects unknown actions; actual resource policy still runs in transactions. `TestDenyByDefault`, policy matrix tests, `TestEveryWorkerJobRejectsForeignScope`, `TestChatRealtimeIsolation`. |
+| Authorization | [x] Request DTOs use explicit allow-lists of updatable fields (no mass assignment; users can never set their own role or workspace_id). | Implemented | Generated DTOs and strict decoding. `TestIdentitySecurity`, `TestOpenAPITenantMatrix`, `TestHandlerPreflightDoesNotGrantOwnership`. |
+| WebSockets | [x] Validate Origin. Authenticate on connect, then authorize every subscribe and every inbound message. Channel names include workspace id. Set read size limits, per-user connection caps and idle timeouts. | Implemented | `TestChatRealtimeIsolation` covers cross-site handshakes, foreign subscribe/unsubscribe/typing, flood/size/connection limits and revocation. `TestFramesRejectCallerSelectedWorkspace` covers forged heartbeat/scope fields. |
+| Integrations | [ ] OAuth uses state + PKCE. Third-party tokens encrypted at rest (AES-GCM, key from env) and never logged. Minimal scopes. | Pending | No OAuth ingress or stored tokens; `TestGatedFeaturesHaveNoHTTPIngress` gates exposure. Vendor state/PKCE/encryption tests are required with the feature. |
+| Integrations | [ ] Webhooks: verify HMAC signature with constant-time compare, check timestamp and reject replays (store delivery ids). | Partial | Generic workspace-bound HMAC/timestamp verifier and atomic RLS replay receipts are implemented: `TestWebhookSignatureBindingAndExpiry`, `TestWebhookReplayAndTenantScope`. Vendor-specific ingress is still absent and gated. |
+| Integrations | [x] SSRF guard on any server-side fetch: block private, loopback, link-local and metadata IP ranges, re-check after redirects and DNS resolution. | Implemented | All real provider defaults use `pkg/safehttp`: public-IP allow checks, pinned DNS dials, proxy disabled, HTTPS/443 only, redirects refused. `TestSSRFBlockedRanges`, `TestSSRFDNSPinningAndMixedAnswers`, `TestSSRFRedirectsAndProtocols`. Arbitrary fetch features remain absent. |
+| Audit | [x] Append-only audit_log: app role has INSERT only (REVOKE UPDATE, DELETE, TRUNCATE) plus a trigger that raises on UPDATE/DELETE. Each row stores a hash of the previous row. | Implemented | `TestTenantIsolationAndRoleSafety`, `TestIdentitySecurity`; authenticated `slipgraph audit verify` runs in CI after smoke tests via `scripts/audit_ci.py`. |
 | Audit | [ ] Log: logins, role changes, invites, exports, proposals created/approved/rejected/ executed, every agent action, with actor (human or agent), workspace, before/after. | Partial | Current identity/project/task/dependency/risk/chat events include actor kind, workspace and metadata before/after. Proposal transitions, agent completion and executed task changes write immediate audit rows with actor kind and metadata before/after; exports remain gated. |
-| Audit | [x] Redact secrets and tokens from logs and audit payloads. | Implemented | slog allow-list; explicit event snapshots omit credentials and free text; secret-key payload checks; token hashes stay in auth. |
-| Files and web | [x] Uploads: max size, allow-listed types, magic-byte check, random object names, tenant-prefixed storage keys, never served from the app origin with active content. | Implemented | Bounded streaming upload, MIME/signature allow-list, random tenant keys, private local storage, authenticated attachment downloads and inert blob player; adversarial two-workspace tests. |
-| Files and web | [ ] Strict CSP, security headers (HSTS, X-Content-Type-Options, frame-ancestors none, Referrer-Policy). Sanitize any rich text with DOMPurify. sqlc/parameterized queries only. | Partial | API/NGINX headers and CSP; parameterized queries within TenantTx; DOMPurify strips chat HTML before React text rendering. Validated internal task cards only; XSS tests. |
-| Files and web | [x] Secrets from environment only, never committed. CI runs govulncheck, npm audit, gosec, golangci-lint, and the tenant isolation suite. | Implemented | Random local secret files, ignored .env, CI scan jobs, isolation suite. Production secret manager required. |
+| Audit | [x] Redact secrets and tokens from logs and audit payloads. | Implemented | Typed slog allow-list and extended secret-key audit rejection. `TestRedaction`, `TestAllowedKeysCannotSmuggleSecretValues`, `TestPanicIsSanitized`, `TestIdentitySecurity`. |
+| Files and web | [x] Uploads: max size, allow-listed types, magic-byte check, random object names, tenant-prefixed storage keys, never served from the app origin with active content. | Implemented | `TestMagicAndTranscriptValidation`, `TestDecodedSampleLimit`, `TestLocalScope`, `TestCancelledWriteLeavesNoFile`, `TestMeetingsSecurityAndPipeline`, `TestOpenAPITenantMatrix/getMeetingMedia`, `scripts/security_smoke.py`. |
+| Files and web | [x] Strict CSP, security headers (HSTS, X-Content-Type-Options, frame-ancestors none, Referrer-Policy). Sanitize any rich text with DOMPurify. sqlc/parameterized queries only. | Implemented | 256-bit per-document CSPRNG nonces, strict-dynamic, no unsafe-inline/eval, no-store and no conditional HTML caching; proxy preserves backend sandbox CSP. `scripts/security_smoke.py`, `TestHealth`, frontend XSS tests and `TestDatabaseBoundaries`. |
+| Files and web | [x] Secrets from environment only, never committed. CI runs govulncheck, npm audit, gosec, golangci-lint, and the tenant isolation suite. | Implemented | CI scans include ./pkg, both RLS test modes, security/nonce smoke and audit CLI verification. `make lint`; production managed secrets/TLS remain deployment requirements. |
 
 ## Approved global identity exception
 
@@ -159,3 +159,73 @@ truth or defeat all prompt injection; read-only output has no business-write
 capability. Soft-deleted content is excluded immediately through live joins even
 before physical index cleanup. Retention/administrative database access remains
 a deployment responsibility. Search starts disabled and mock mode is labeled.
+
+
+## Hardening verification and scope
+
+| Threat | Mitigation | Executed test / gate | Status |
+| --- | --- | --- | --- |
+| A new route silently bypasses tenant tests | Read the actual OpenAPI methods/paths; require an exact reviewed case and compare registered Chi routes | `TestEveryOpenAPIOperationHasSecurityCase`, `TestNewEndpointFailsCoverageGate`, `TestRegisteredRoutesMatchOpenAPI` | Implemented |
+| A foreign ID is rejected only because it is invalid or nonexistent | Seed real projects/tasks/channels/messages/proposals/runs/briefs/meetings/segments/files; require own reads to succeed and foreign resource reads/actions to return 404 | `TestOpenAPITenantMatrix` | Implemented |
+| A collection leaks another tenant without accepting a tenant parameter | Distinct private canaries and every fixture ID; test lists/settings, forged headers and search/Ask while A has indexed data and B has none | `TestOpenAPITenantMatrix`, `TestSearchIsolationAndCitations` | Implemented |
+| New consumer or proposal kind lacks a security case | Source/schema inventory plus manifest; runtime test must execute every declared case | `TestRegisteredJobsHaveExecutedSecurityCases`, `TestEveryWorkerJobRejectsForeignScope` | Implemented |
+| A job merely fails validation after reading foreign data | Require not-found/source-unavailable errors, approved executable fixtures, valid service identities, and zero provider calls | `TestEveryWorkerJobRejectsForeignScope` | Implemented |
+| RLS passes only because SQL happened to include filters | Compile-time `rlstest` rewrites business workspace equality guards while preserving parameter types, joins and transaction GUC; repeat complete HTTP/worker suite | `TestTenantFilterFaultInjection`, CI `integration,rlstest` run | Implemented |
+| New tenant table lacks real isolation coverage | Enumerate every app heap/partition, require real A fixtures and ENABLE/FORCE RLS, then SELECT with no tenant WHERE; test foreign object writes and search invoker view | `TestEveryTenantTableRLSWithoutApplicationFilters` | Implemented |
+| Global identity exception expands unnoticed | Catalog allow-list remains exactly the six approved identity tables | `TestEveryTenantTableRLSWithoutApplicationFilters`, `TestIdentitySecurity` | Implemented |
+| Traffic evades limits before session resolution | Bounded global IP budget, shared pre-auth IP budget, authenticated action budgets, NGINX zone; existing feature budgets remain | `TestGlobalRateBudgetBoundedAndRefills`, `TestIdentitySecurity`, `TestChatRealtimeIsolation` | Implemented |
+| Browser reuses a nonce or attacker chooses it | API crypto/rand nonce required by an internal proxy subrequest; HTML fails closed, has no-store and conditional caching disabled | `scripts/security_smoke.py` | Implemented |
+| Reverse proxy weakens a private response | Preserve upstream CSP, including media sandbox; enforce additional edge headers | `scripts/security_smoke.py` | Implemented |
+| Whitelisted log keys carry arbitrary credentials | Validate UUID, method, service and numeric attribute types; redact everything else including nested values | `TestAllowedKeysCannotSmuggleSecretValues`, `TestRedaction` | Implemented |
+| Signed webhook is replayed concurrently or in another workspace | Bind workspace/provider/delivery/time/body; constant-time MAC, short freshness window and atomic INSERT-only tenant receipt | `TestWebhookSignatureBindingAndExpiry`, `TestWebhookReplayAndTenantScope` | Primitive implemented; ingress gated |
+| DNS rebinding, private/mapped IP or environment proxy bypass | Validate every resolved address, pin IP at dial, preserve TLS hostname validation, disable proxies, check every redirect/new dial | `TestSSRFBlockedRanges`, `TestSSRFDNSPinningAndMixedAnswers`, `TestSSRFRedirectsAndProtocols` | Implemented for current outbound HTTP defaults |
+
+The OpenAPI inventory is `api/security-coverage.json`; the job inventory is
+`api/job-security-coverage.json`. Public health/authentication/bootstrap endpoints
+and own-user identity directories cannot correctly return 403 solely because a
+caller belongs to B. Their cases instead prove public/own-user behavior, absent
+foreign data, credential/ticket isolation and CSRF. Resource endpoints use real
+foreign IDs and must deny access. No production environment variable removes SQL
+filters; normal builds use `filters_normal.go`.
+
+The RLS fault build deliberately does **not** remove ownership filters from the
+six approved global identity tables. Those tables have no tenant RLS by explicit
+design, so their own-user predicates are an independent mandatory boundary,
+covered by `TestIdentitySecurity`. Business SQL through TenantTx loses its
+workspace equality guards in the test build; the GUC, FORCE RLS, tenant-aware
+joins and integrity constraints remain active.
+
+## workspace_id source audit
+
+| Boundary | Authoritative source | Review / guard |
+| --- | --- | --- |
+| REST and WebSocket handshake | Resolved opaque cookie session plus verified live membership | `auth.HTTP.Require`, `auth.Service.InTenant`; request workspace query keys are rejected, never read as scope |
+| Workspace creation | Server-minted UUID | Signup/create-workspace input contains only allowed profile/name fields |
+| Workspace switching / invite acceptance | Own-directory single-use ticket or hashed invite bound to authenticated email | `TestIdentitySecurity`; no body/URL workspace identity |
+| Worker and consumers | Verified service session plus persisted requester/approver membership | `AuthorizeConsumer`, `JobMember`, `TestEveryWorkerJobRejectsForeignScope` |
+| SQL, quotas, Redis and files | TenantTx.WorkspaceID or verified session/actor scope | Forced RLS, composite keys, prefixed broker/storage keys; catalog and storage tests |
+| Audit CLI | Resolved admin session from stdin/environment, then central policy | No workspace argument; `scripts/audit_ci.py` |
+| Future code | Literal request scope getters prohibited | `TestDatabaseBoundaries` / `TestGuardRejectsBypass`; `TestRequestContractsCannotSelectTenantIdentity` forbids scope fields in request schemas; manual review found only the rejecting Query.Has guard |
+
+## Remaining gaps and deployment responsibilities
+
+- **OAuth and vendor webhook ingress remain disabled.** The generic verifier is
+  not a GitHub/Slack/vendor protocol adapter. Enabling ingress still requires the
+  vendor's exact signature contract, installation-to-workspace mapping, delivery
+  policy/rate limits, and endpoint tests. OAuth still requires state/PKCE, minimal
+  scopes and encrypted third-party token storage. There are no stored OAuth tokens.
+- **Public password-reset email, exports and rich HTML are disabled.** Their
+  delivery, authorization, audit and abuse controls must be implemented with those
+  features; a foundation test is not a claim that absent delivery works.
+- **Production deployment is not attested by local CI.** Managed secrets, HTTPS,
+  database/Redis TLS, rotation, patched FFmpeg/base images, network restrictions,
+  operational retention and alerting remain operator responsibilities. The direct
+  Vite development server is not the nonce-protected production frontend.
+- **Database administrators and a compromised runtime process remain trusted
+  boundaries.** RLS depends on trusted binding of the transaction GUC. An admin can
+  rewrite the chain and its stored head; independent export/anchoring of audit heads
+  is still needed for evidence against a malicious database administrator.
+- **Real provider and vendor services were not contacted by security tests.**
+  HTTP contracts, DNS pinning and rejection paths use deterministic fixtures.
+  Deployed CSP markup/headers and inert frontend rendering are tested; automated
+  real-browser CSP violation reporting/evaluation is not yet part of CI.

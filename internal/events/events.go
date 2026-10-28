@@ -45,7 +45,7 @@ func write(ctx context.Context, tx database.TenantTx, object, actor uuid.UUID, k
 		return errors.New("invalid event payload")
 	}
 	lower := strings.ToLower(string(data))
-	for _, key := range []string{`"password"`, `"password_hash"`, `"token"`, `"token_hash"`, `"refresh_hash"`, `"secret"`, `"authorization"`} {
+	for _, key := range []string{`"password"`, `"password_hash"`, `"token"`, `"token_hash"`, `"refresh_hash"`, `"secret"`, `"authorization"`, `"api_key"`, `"access_token"`, `"refresh_token"`, `"session_token"`, `"private_key"`, `"client_secret"`, `"cookie"`, `"set-cookie"`, `"database_url"`} {
 		if strings.Contains(lower, key) {
 			return errors.New("secret field in event")
 		}

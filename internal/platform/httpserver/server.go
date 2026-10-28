@@ -101,6 +101,7 @@ func (w *recorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 }
 func (w *recorder) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 func Middleware(logger *slog.Logger) func(http.Handler) http.Handler {
+	limiter := newIPLimiter()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id, err := uuid.NewV7()
@@ -114,6 +115,8 @@ func Middleware(logger *slog.Logger) func(http.Handler) http.Handler {
 			w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+			w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 			w.Header().Set("Referrer-Policy", "no-referrer")
 			w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 			w.Header().Set("Cache-Control", "no-store")
@@ -134,6 +137,12 @@ func Middleware(logger *slog.Logger) func(http.Handler) http.Handler {
 				}
 				logger.InfoContext(r.Context(), "request", "request_id", id.String(), "method", r.Method, "status", status, "duration_ms", time.Since(start).Milliseconds())
 			}()
+			if !limiter.allow(r.RemoteAddr) {
+				w.Header().Set("Retry-After", "1")
+				auth.JSON(rw, 429, map[string]string{"error": "too many attempts"})
+				return
+			}
+
 			next.ServeHTTP(rw, r)
 		})
 	}

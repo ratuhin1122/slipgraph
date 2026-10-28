@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
+	"github.com/slipgraph/slipgraph/pkg/safehttp"
 	"io"
 	"math"
 	"net/http"
@@ -81,7 +82,7 @@ func (p OpenAIEmbedder) Embed(ctx context.Context, texts []string) ([][]float32,
 	req.Header.Set("Content-Type", "application/json")
 	client := p.Client
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		client = safehttp.NewClient(30*time.Second, false)
 	}
 	resp, e := client.Do(req)
 	if e != nil {

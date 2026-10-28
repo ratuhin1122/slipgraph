@@ -1,4 +1,4 @@
-GO_PACKAGES := ./cmd/... ./internal/...
+GO_PACKAGES := ./cmd/... ./internal/... ./pkg/...
 # Override these with preinstalled binaries when using an offline tool cache.
 GOLANGCI_LINT ?= go run -p=1 github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 GOSEC ?= go run -p=1 github.com/securego/gosec/v2/cmd/gosec@v2.30.0
@@ -16,7 +16,9 @@ test-unit:
 	npm --prefix web test
 test: test-unit
 	go test -race -tags=integration -timeout=5m ./internal/platform/database
-	go test -race -tags=integration -timeout=5m ./internal/auth
+	go test -race -tags=integration -timeout=8m ./internal/auth
+	go test -tags=rlstest ./internal/platform/database -run=TestTenantFilterFaultInjection
+	go test -race -tags=integration,rlstest -timeout=8m ./internal/auth
 	go test ./internal/risk "-run=^$$" -bench=BenchmarkImpact -benchtime=3x
 lint:
 	go vet $(GO_PACKAGES)

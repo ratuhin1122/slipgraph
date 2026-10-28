@@ -9,6 +9,8 @@ import (
 	"github.com/slipgraph/slipgraph/internal/policy"
 )
 
+var ErrSourceUnavailable = errors.New("audit source unavailable")
+
 type Result struct {
 	Valid   bool   `json:"valid"`
 	Entries int64  `json:"entries"`
@@ -29,6 +31,13 @@ func Verify(ctx context.Context, tx database.TenantTx, actor policy.Actor) (Resu
 func Consume(ctx context.Context, tx database.TenantTx, actor policy.Actor, eventID uuid.UUID) error {
 	if !policy.Can(ctx, actor, policy.AuditAppend, policy.Resource{WorkspaceID: tx.WorkspaceID().String()}) {
 		return errors.New("not permitted")
+	}
+	var visible bool
+	if e := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.events WHERE workspace_id=$1 AND id=$2)`, tx.WorkspaceID(), eventID).Scan(&visible); e != nil {
+		return e
+	}
+	if !visible {
+		return ErrSourceUnavailable
 	}
 	auditID, err := uuid.NewV7()
 	if err != nil {

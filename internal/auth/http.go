@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
@@ -190,6 +192,11 @@ func (h *HTTP) public(w http.ResponseWriter, r *http.Request, purpose string, li
 // Require authenticates cookies and enforces CSRF before protected handlers decode
 // any DTO. The actual resource-specific authorization runs again inside InTenant.
 func (h *HTTP) Require(w http.ResponseWriter, r *http.Request, action policy.Action) (Session, bool) {
+	if e := h.Service.Rate(r.Context(), "http:preauth", h.client(r), 600, time.Minute); e != nil {
+		Error(w, e)
+		return Session{}, false
+	}
+
 	if r.URL.Query().Has("workspace_id") {
 		Error(w, ErrInvalid)
 		return Session{}, false
@@ -201,6 +208,10 @@ func (h *HTTP) Require(w http.ResponseWriter, r *http.Request, action policy.Act
 		return session, false
 	}
 	if !policy.Can(r.Context(), session.Actor(), policy.SessionRead, policy.Resource{WorkspaceID: session.WorkspaceID.String(), OwnerID: session.User.ID.String()}) {
+		Error(w, ErrForbidden)
+		return session, false
+	}
+	if !policy.MayAttempt(r.Context(), session.Actor(), action, session.WorkspaceID.String()) {
 		Error(w, ErrForbidden)
 		return session, false
 	}
@@ -452,4 +463,20 @@ func (h *HTTP) VerifyAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	JSON(w, 200, result)
+}
+
+// GetDocumentNonce bootstraps an inert application document, never a tenant scope.
+// The proxy requires success before serving HTML; client-provided nonces are ignored.
+func (h *HTTP) GetDocumentNonce(w http.ResponseWriter, r *http.Request) {
+	if !h.public(w, r, "document-nonce", 600, 10*time.Minute) {
+		return
+	}
+	var raw [32]byte
+	if _, e := rand.Read(raw[:]); e != nil {
+		Error(w, e)
+		return
+	}
+	w.Header().Set("X-CSP-Nonce", base64.RawStdEncoding.EncodeToString(raw[:]))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(204)
 }

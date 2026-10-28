@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/auth/document-nonce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Rate-limited public document bootstrap. Not a tenant or authorization token. */
+        get: operations["getDocumentNonce"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -1373,6 +1390,32 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getDocumentNonce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh cryptographic document nonce; never cache */
+            204: {
+                headers: {
+                    "X-CSP-Nonce"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     requestSearch: {
         parameters: {
             query?: never;

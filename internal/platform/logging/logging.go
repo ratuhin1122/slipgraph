@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"io"
 	"log/slog"
 	"strings"
@@ -14,8 +15,44 @@ func Scrub(_ []string, a slog.Attr) slog.Attr {
 		return a
 	}
 	switch a.Key {
-	case "input_tokens", "output_tokens", "cost_microusd", "workspace_id", "run_id", slog.TimeKey, slog.LevelKey, "request_id", "method", "status", "duration_ms", "service", "event":
-		return a
+
+	case "workspace_id", "run_id", "request_id":
+		if a.Value.Kind() == slog.KindString {
+			if id, e := uuid.Parse(a.Value.String()); e == nil && id != uuid.Nil {
+				return a
+			}
+		}
+	case "input_tokens", "output_tokens", "cost_microusd", "duration_ms":
+		if a.Value.Kind() == slog.KindInt64 && a.Value.Int64() >= 0 {
+			return a
+		}
+	case "status":
+		if a.Value.Kind() == slog.KindInt64 && a.Value.Int64() >= 100 && a.Value.Int64() <= 599 {
+			return a
+		}
+	case slog.TimeKey:
+		if a.Value.Kind() == slog.KindTime {
+			return a
+		}
+	case slog.LevelKey:
+		if _, ok := a.Value.Any().(slog.Level); ok {
+			return a
+		}
+	case "method":
+		if a.Value.Kind() == slog.KindString {
+			switch a.Value.String() {
+			case "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE":
+				return a
+			}
+		}
+	case "service":
+		if a.Value.Kind() == slog.KindString {
+			switch a.Value.String() {
+			case "api", "worker", "migrate", "slipgraph":
+				return a
+			}
+		}
+
 	case slog.MessageKey:
 		switch a.Value.String() {
 		case "search indexing failed", "search request failed", "search worker failed", "model usage", "request", "starting", "stopped", "startup failed", "server failed", "shutdown failed", "panic recovered", "consumer failed":

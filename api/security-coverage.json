@@ -1,0 +1,362 @@
+[
+  {
+    "operation_id": "requestSearch",
+    "method": "POST",
+    "path": "/search",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "requestAnswer",
+    "method": "POST",
+    "path": "/ask",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "getSearchResult",
+    "method": "GET",
+    "path": "/search/{requestId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getHealth",
+    "method": "GET",
+    "path": "/healthz",
+    "scope": "public"
+  },
+  {
+    "operation_id": "getCSRF",
+    "method": "GET",
+    "path": "/auth/csrf",
+    "scope": "public"
+  },
+  {
+    "operation_id": "signup",
+    "method": "POST",
+    "path": "/auth/signup",
+    "scope": "public"
+  },
+  {
+    "operation_id": "login",
+    "method": "POST",
+    "path": "/auth/login",
+    "scope": "public"
+  },
+  {
+    "operation_id": "refresh",
+    "method": "POST",
+    "path": "/auth/refresh",
+    "scope": "public"
+  },
+  {
+    "operation_id": "logout",
+    "method": "POST",
+    "path": "/auth/logout",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "getSession",
+    "method": "GET",
+    "path": "/auth/session",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "listSessions",
+    "method": "GET",
+    "path": "/auth/sessions",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "listWorkspaces",
+    "method": "GET",
+    "path": "/auth/workspaces",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "createWorkspace",
+    "method": "POST",
+    "path": "/auth/workspaces",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "switchWorkspace",
+    "method": "POST",
+    "path": "/auth/workspace-switch",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "listMembers",
+    "method": "GET",
+    "path": "/members",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "changeRole",
+    "method": "PUT",
+    "path": "/members/{memberId}/role",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "createInvite",
+    "method": "POST",
+    "path": "/invites",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "acceptInvite",
+    "method": "POST",
+    "path": "/invites/accept",
+    "scope": "identity"
+  },
+  {
+    "operation_id": "verifyAudit",
+    "method": "GET",
+    "path": "/audit/verify",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "listProjects",
+    "method": "GET",
+    "path": "/projects",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "createProject",
+    "method": "POST",
+    "path": "/projects",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "getProject",
+    "method": "GET",
+    "path": "/projects/{projectId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "updateProject",
+    "method": "PUT",
+    "path": "/projects/{projectId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "deleteProject",
+    "method": "DELETE",
+    "path": "/projects/{projectId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "createTask",
+    "method": "POST",
+    "path": "/projects/{projectId}/tasks",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getRisk",
+    "method": "GET",
+    "path": "/projects/{projectId}/risk",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getTask",
+    "method": "GET",
+    "path": "/tasks/{taskId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "updateTask",
+    "method": "PUT",
+    "path": "/tasks/{taskId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "deleteTask",
+    "method": "DELETE",
+    "path": "/tasks/{taskId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "reportDelay",
+    "method": "POST",
+    "path": "/tasks/{taskId}/delay",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "addDependency",
+    "method": "POST",
+    "path": "/tasks/{taskId}/dependencies",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "removeDependency",
+    "method": "DELETE",
+    "path": "/tasks/{taskId}/dependencies/{blockerId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "listChannels",
+    "method": "GET",
+    "path": "/channels",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "createChannel",
+    "method": "POST",
+    "path": "/channels",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "getChannel",
+    "method": "GET",
+    "path": "/channels/{channelId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "listMessages",
+    "method": "GET",
+    "path": "/channels/{channelId}/messages",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "postMessage",
+    "method": "POST",
+    "path": "/channels/{channelId}/messages",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getMessage",
+    "method": "GET",
+    "path": "/messages/{messageId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "editMessage",
+    "method": "PUT",
+    "path": "/messages/{messageId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "deleteMessage",
+    "method": "DELETE",
+    "path": "/messages/{messageId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getChannelPresence",
+    "method": "GET",
+    "path": "/channels/{channelId}/presence",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getRealtime",
+    "method": "GET",
+    "path": "/realtime",
+    "scope": "websocket"
+  },
+  {
+    "operation_id": "listProposals",
+    "method": "GET",
+    "path": "/proposals",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "getProposal",
+    "method": "GET",
+    "path": "/proposals/{proposalId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "approveProposal",
+    "method": "POST",
+    "path": "/proposals/{proposalId}/approve",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "rejectProposal",
+    "method": "POST",
+    "path": "/proposals/{proposalId}/reject",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getAgentSettings",
+    "method": "GET",
+    "path": "/agents/settings",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "requestPlan",
+    "method": "POST",
+    "path": "/plans",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "getAgentRun",
+    "method": "GET",
+    "path": "/agent-runs/{runId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "confirmDelay",
+    "method": "POST",
+    "path": "/agent-runs/{runId}/confirm",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "listProjectImpacts",
+    "method": "GET",
+    "path": "/projects/{projectId}/impacts",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getBrief",
+    "method": "GET",
+    "path": "/briefs/{briefId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getMeetingSettings",
+    "method": "GET",
+    "path": "/meetings/settings",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "listMeetings",
+    "method": "GET",
+    "path": "/meetings",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "uploadMeeting",
+    "method": "POST",
+    "path": "/meetings",
+    "scope": "collection"
+  },
+  {
+    "operation_id": "getMeeting",
+    "method": "GET",
+    "path": "/meetings/{meetingId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getMeetingTranscript",
+    "method": "GET",
+    "path": "/meetings/{meetingId}/transcript",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getTranscriptSegment",
+    "method": "GET",
+    "path": "/meetings/{meetingId}/segments/{segmentId}",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getMeetingMedia",
+    "method": "GET",
+    "path": "/meetings/{meetingId}/media",
+    "scope": "resource"
+  },
+  {
+    "operation_id": "getDocumentNonce",
+    "method": "GET",
+    "path": "/auth/document-nonce",
+    "scope": "public"
+  }
+]

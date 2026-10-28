@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/slipgraph/slipgraph/pkg/safehttp"
 	"io"
 	"net/http"
 	"os"
@@ -19,7 +20,7 @@ type remote struct {
 func NewOpenAI(key, model string) Provider    { return newRemote("openai", key, model) }
 func NewAnthropic(key, model string) Provider { return newRemote("anthropic", key, model) }
 func newRemote(vendor, key, model string) *remote {
-	return &remote{vendor: vendor, key: key, model: model, client: &http.Client{Timeout: 45 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	return &remote{vendor: vendor, key: key, model: model, client: safehttp.NewClient(45*time.Second, false)}
 }
 
 // FromEnv is disabled unless explicitly configured; keys belong in worker-only secrets.

@@ -8,6 +8,19 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /auth/document-nonce:
+    get:
+      operationId: getDocumentNonce
+      security: []
+      description: Rate-limited public document bootstrap. Not a tenant or authorization token.
+      responses:
+        '204':
+          description: Fresh cryptographic document nonce; never cache
+          headers:
+            X-CSP-Nonce:
+              schema: {type: string}
+        '429':
+          description: Rate limited
   /search:
     post:
       security:

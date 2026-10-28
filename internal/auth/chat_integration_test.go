@@ -230,12 +230,20 @@ func TestChatRealtimeIsolation(t *testing.T) {
 		t.Fatalf("missing %s", kind)
 		return realtime.Notice{}
 	}
-	foreign := open(b)
-	write(foreign, map[string]interface{}{"type": "subscribe", "channel_id": channel.ID})
-	if until(foreign, "error").Code != "not_found" {
-		t.Fatal("foreign subscription accepted")
+
+	for _, kind := range []string{"subscribe", "unsubscribe", "typing"} {
+		foreign := open(b)
+		frame := map[string]interface{}{"type": kind, "channel_id": channel.ID}
+		if kind == "typing" {
+			frame["active"] = true
+		}
+		write(foreign, frame)
+		if until(foreign, "error").Code != "not_found" {
+			t.Fatal("foreign websocket frame accepted", kind)
+		}
+		_ = foreign.CloseNow()
 	}
-	_ = foreign.CloseNow()
+
 	good := open(a)
 	write(good, map[string]interface{}{"type": "subscribe", "channel_id": channel.ID})
 	until(good, "subscribed")

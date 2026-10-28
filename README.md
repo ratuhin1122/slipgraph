@@ -136,3 +136,21 @@ indexing, worker queue/poll delay, remote embeddings and answer generation.
 This synthetic warm-cache result is not a production latency guarantee.
 Run `python scripts/search_benchmark.py` to reproduce. Details: [measurement](docs/SEARCH_BENCHMARK.json).
 <!-- search-benchmark:end -->
+
+
+## Security verification
+
+`make test` runs the OpenAPI-driven cross-tenant suite both normally and with
+compile-time SQL tenant-filter removal. Docker is required; isolation tests do not
+skip. New routes, consumers, executable kinds and tenant tables need registered,
+executed security cases. See [the threat model](docs/THREAT_MODEL.md) for the
+coverage matrix, workspace-source audit and remaining gated integrations.
+
+The production NGINX frontend uses a per-document nonce bootstrap; keep the API
+available for HTML delivery. CI also checks the deployed nonce/header/download
+boundary and runs authenticated `slipgraph audit verify` after smoke tests. Session
+credentials are passed to that command on stdin and never printed.
+
+Run `python scripts/run_smoke.py` against a mock-enabled stack for all production
+smoke flows and the final audit command. The runner reuses four synthetic accounts
+with fresh workspaces so it respects signup limits; credentials stay in memory.
